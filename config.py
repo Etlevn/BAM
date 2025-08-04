@@ -4,6 +4,10 @@ Centralizes all path configurations and experiment settings.
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Base directory - use current working directory
 BASE_DIR = os.getcwd()
@@ -39,7 +43,8 @@ MODEL_CONFIG = {
 # API configuration
 API_CONFIG = {
     "api_mode": "expected_parrot",  # "openai" or "expected_parrot"
-    "openai_api_key": "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"
+    "openai_api_key": os.getenv("OPENAI_API_KEY", ""),  # Load from .env file
+    "expected_parrot_api_key": os.getenv("EXPECTED_PARROT_API_KEY", "")  # Load from .env file
 }
 
 def get_exp_dir(model_name):

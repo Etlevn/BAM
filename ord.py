@@ -32,6 +32,12 @@ def chat_with_parrot(prompt, model_name="gpt-4o"):
     Sends a prompt to Expected Parrot via EDSL Model interface.
     """
     try:
+        # Set Expected Parrot API key from config
+        import os
+        ep_api_key = config.API_CONFIG["expected_parrot_api_key"]
+        if ep_api_key:
+            os.environ["EXPECTED_PARROT_API_KEY"] = ep_api_key
+        
         model = Model(model_name)
         question = QuestionFreeText(
             question_name="llm_response",
