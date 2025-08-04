@@ -47,6 +47,8 @@ Thumbs.db
 # Project specific
 exp/*/
 log/*/
+init/prac/
+init/r0/
 .env
 *.log
 

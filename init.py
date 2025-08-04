@@ -2,6 +2,7 @@ import os
 import datetime
 import json
 import pandas as pd
+import config
 
 # Global directory variables
 INIT_DIR = None
@@ -16,48 +17,15 @@ _experiment_config = None
 
 def get_experiment_config():
     """
-    Loads and returns experiment configuration from experiment_conditions.json.
+    Returns experiment configuration from config.py.
     Uses internal cache to avoid redundant reads.
-    Falls back to default values if the file is missing or invalid.
     """
     global _experiment_config
     if _experiment_config is not None:
         return _experiment_config
 
-    default_config = {
-        "initial_cash": 100,
-        "initial_stocks": 4,
-        "stock_value": 14,
-        "interest_rate": 0.05,
-        "dividend_low": 0.4,
-        "dividend_high": 1.0,
-        "dividend_prob": 0.5,
-        "practice_rounds": 0,
-        "total_rounds": 10
-    }
-
-    if INIT_PROMPT_DIR is None:
-        print("[init_vol_.py] INIT_PROMPT_DIR is not set. Cannot load experiment configuration.")
-        _experiment_config = default_config
-        return _experiment_config
-
-    config_path = os.path.join(INIT_PROMPT_DIR, "experiment_conditions.json")
-
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                user_config = json.load(f)
-            for key in default_config:
-                if key not in user_config:
-                    user_config[key] = default_config[key]
-            _experiment_config = user_config
-        except json.JSONDecodeError as e:
-            print(f"[init_vol_.py] Error parsing experiment_conditions.json: {e}")
-            _experiment_config = default_config
-    else:
-        print(f"[init_vol_.py] experiment_conditions.json not found. Using default values.")
-        _experiment_config = default_config
-
+    # Use configuration from config.py
+    _experiment_config = config.EXPERIMENT_CONFIG
     return _experiment_config
 
 def initialize_experiment(WORK_DIR):

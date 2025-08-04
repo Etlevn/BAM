@@ -4,11 +4,12 @@ import ord
 import proc
 import mkt
 import pfl
+import config
 
 # === Experiment Configuration ===
-WORK_DIR = "/Users/etlevn/Documents/PycharmProjects/LLM_Trd"  # <-- Set your base working directory here
-NUM_LLMs = 20  # Number of LLM agents
-MODEL_NAME = "gpt-4o"  # <-- Set desired model name here (e.g., "gpt-4", "claude-3-5-sonnet-20240620")
+WORK_DIR = config.BASE_DIR  # <-- Use config file
+NUM_LLMs = config.MODEL_CONFIG["num_llms"]  # Number of LLM agents
+MODEL_NAME = config.MODEL_CONFIG["model_name"]  # <-- Set desired model name here (e.g., "gpt-4", "claude-3-5-sonnet-20240620")
 
 def run_experiment(mode="main", model_name=MODEL_NAME):
     """
