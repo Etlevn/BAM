@@ -65,13 +65,22 @@ def chat_with_openai(prompt, model_name="gpt-4o"):
     except Exception as e:
         return f"Error: {e}"
 
-def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, model_name="gpt-4o"):
+def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, model_name="gpt-4o", battle_manager=None):
     """
     Runs a single round of the experiment:
     - Reads input files from `exp/[timestamp]/input/rX/` (or `init/r0/` for round 1)
     - Loads experiment prompt and conditions from `init/prompt/`
     - Calls the LLM API to simulate agent trading
     - Saves results to `exp/[timestamp]/output/rX/`
+    
+    Args:
+        exp_run_dir: Experiment directory
+        round_num: Current round number
+        num_llms: Number of LLM agents
+        total_rounds: Total number of rounds
+        mode: Experiment mode ("main", "prac", "refl")
+        model_name: Default model name (used when battle_manager is None)
+        battle_manager: Battle Royale manager instance (optional)
     """
 
     # Load shared experiment prompts from the prompt directory
@@ -84,6 +93,15 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
     for i in range(1, num_llms + 1):
         llm_id = f"llm_{i:03d}"
         file_paths = generate_filenames(exp_run_dir, llm_id, round_num)
+
+        # Get model for this agent (Battle Royale or default)
+        if battle_manager:
+            agent_model = battle_manager.get_model_for_agent(llm_id)
+        else:
+            agent_model = model_name
+        
+        # Print which model this agent is using
+        print(f"[{mode}] Processing {llm_id} using model: {agent_model}")
 
         # Load prior-round input files
         plans_content = read_file(file_paths["plans"])
@@ -130,7 +148,18 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
 
         # Handle reflection separately (text only)
         if mode == "refl":
-            response_text = chat_with_llm(prompt_text, model_name).strip()
+            response = chat_with_llm(prompt_text, agent_model)
+            
+            # Extract text content from response (handle both dict and string formats)
+            if isinstance(response, dict) and "llm_response" in response:
+                response_text = response["llm_response"]
+            elif isinstance(response, str):
+                response_text = response
+            else:
+                response_text = str(response)
+            
+            response_text = response_text.strip()
+            
             reflection_dir = os.path.join(init.INIT_DIR, "prac")
             os.makedirs(reflection_dir, exist_ok=True)
             reflection_filename = os.path.join(reflection_dir, f"{llm_id}_r0_reflection.txt")
@@ -143,7 +172,7 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         max_attempts = 3
         attempt = 1
         while attempt <= max_attempts:
-            response_json = utils.try_get_valid_json(prompt_text, contents, model_name=model_name)
+            response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
             try:
                 # Custom unwrapping logic for llm_response
                 if isinstance(response_json, dict) and "llm_response" in response_json:
@@ -164,7 +193,7 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
                 # Check for connection error pause
                 while pause_on_connection_error(llm_id, round_num, response_json):
                     print(f"[ord.py] Retrying {llm_id} in round {round_num} after connection error...")
-                    response_json = utils.try_get_valid_json(prompt_text, contents, model_name=model_name)
+                    response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
                     # Re-apply unwrapping after retry
                     if isinstance(response_json, dict) and "llm_response" in response_json:
                         raw_response = response_json["llm_response"]
@@ -193,7 +222,7 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
                     response_json = {"raw_response": str(response_json)}
                     break
         max_quantity = 5
-        response_json = valid.ensure_valid_orders(response_json, prompt_text, limit_price_min, limit_price_max, max_quantity, model_name=model_name)
+        response_json = valid.ensure_valid_orders(response_json, prompt_text, limit_price_min, limit_price_max, max_quantity, model_name=agent_model)
 
         # Save result JSON file
         exp_output_dir = os.path.join(exp_run_dir, "output", f"r{round_num}")
@@ -204,6 +233,7 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
             json.dump(response_json, f, indent=4)
 
         print(f"[{mode}] Response for {llm_id} in round {round_num} saved to {output_filename}")
+        print()
 
 def pause_on_job_failed(llm_id, round_num, response_text):
     """
@@ -237,8 +267,16 @@ def read_file(file_path):
     if not os.path.exists(file_path):
         print(f"Warning: {file_path} not found. Using empty content.")
         return ""
+    
     with open(file_path, "r", encoding="utf-8") as file:
-        return file.read()
+        content = file.read()
+    
+    # 如果是reflection文件，自动解析格式
+    if "reflection" in file_path:
+        from utils import parse_reflection_content
+        return parse_reflection_content(content)
+    
+    return content
 
 def generate_filenames(exp_run_dir,llm_id, current_round):
     """

@@ -58,3 +58,5 @@ init/r0/
 # Temporary files
 *.tmp
 *.temp 
+
+*.html

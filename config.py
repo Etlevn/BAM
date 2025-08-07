@@ -47,6 +47,34 @@ API_CONFIG = {
     "expected_parrot_api_key": os.getenv("EXPECTED_PARROT_API_KEY", "")  # Load from .env file
 }
 
+# Battle Royale configuration
+BATTLE_ROYALE_CONFIG = {
+    "enabled": True,  # Enable/disable Battle Royale mode
+    "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
+    "custom_models": [
+        {
+            "name": "gpt-4o",
+            "count": 5,
+            "description": "GPT-4 Omni model"
+        },
+        {
+            "name": "claude-3-7-sonnet-20250219",
+            "count": 5,
+            "description": "Claude 3.7 Sonnet model"
+        },
+        {
+            "name": "grok-3",
+            "count": 5,
+            "description": "Grok-3 model"
+        },
+        {
+            "name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            "count": 5,
+            "description": "Llama-4-Maverick model"
+        }
+    ]
+}
+
 def get_exp_dir(model_name):
     """Get experiment directory for a specific model."""
     return os.path.join(EXP_DIR, model_name.replace("/", "_"))

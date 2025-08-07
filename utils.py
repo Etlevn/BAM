@@ -6,6 +6,7 @@ Extracted from ord.py to improve code organization.
 import json
 import re
 import ast
+from typing import Dict, Any, Optional
 
 def extract_json(response_text):
     """
@@ -157,3 +158,86 @@ def pause_on_null_response(llm_id, round_num, response_json):
                 pass
 
     return False 
+
+def parse_reflection_content(content: str) -> str:
+    """
+    解析reflection内容，处理所有可能的格式
+    与成功修复所有文件的逻辑完全一致
+    
+    Args:
+        content: 原始reflection内容
+        
+    Returns:
+        解析后的纯文本内容
+    """
+    if not content or content.strip() == "":
+        return ""
+    
+    content = content.strip()
+    
+    # 情况1: 已经是纯文本
+    if not content.startswith("{") and not content.startswith("'{"):
+        return content
+    
+    # 情况2: 处理空响应
+    if content == "{'llm_response': None}" or content == '{"llm_response": null}':
+        return ""
+    
+    # 情况3: 使用ast.literal_eval解析字典格式（最准确的方法）
+    if (content.startswith("{") and content.endswith("}")) or (content.startswith("{'") and content.endswith("'}")):
+        try:
+            parsed = ast.literal_eval(content)
+            if isinstance(parsed, dict) and "llm_response" in parsed:
+                response = parsed["llm_response"]
+                if response is None:
+                    return ""
+                # ast.literal_eval已经处理了转义字符，直接返回
+                return str(response)
+        except (ValueError, SyntaxError):
+            # 如果解析失败，继续尝试其他方法
+            pass
+    
+    # 情况4: JSON格式的字典
+    if content.startswith("{") and content.endswith("}"):
+        try:
+            import json
+            parsed = json.loads(content)
+            if isinstance(parsed, dict) and "llm_response" in parsed:
+                response = parsed["llm_response"]
+                if response is None:
+                    return ""
+                return str(response)
+        except json.JSONDecodeError:
+            # 继续尝试其他方法
+            pass
+    
+    # 情况5: 使用正则表达式提取（保留原始转义字符处理）
+    if "llm_response" in content:
+        try:
+            import re
+            # 匹配双引号 - 使用贪婪匹配获取完整内容
+            pattern = r"'llm_response':\s*\"(.*)\""
+            match = re.search(pattern, content, re.DOTALL)
+            if match:
+                extracted = match.group(1)
+                # 处理转义字符
+                extracted = extracted.replace('\\n', '\n').replace('\\t', '\t')
+                if extracted == "None" or extracted == "":
+                    return ""
+                return extracted
+            
+            # 匹配单引号 - 使用贪婪匹配获取完整内容
+            pattern = r"'llm_response':\s*'(.*)'"
+            match = re.search(pattern, content, re.DOTALL)
+            if match:
+                extracted = match.group(1)
+                # 处理转义字符
+                extracted = extracted.replace('\\n', '\n').replace('\\t', '\t')
+                if extracted == "None" or extracted == "":
+                    return ""
+                return extracted
+        except Exception:
+            pass
+    
+    # 情况6: 无法解析，返回原始内容
+    return content 
