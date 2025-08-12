@@ -36,8 +36,8 @@ EXPERIMENT_CONFIG = {
 
 # Model configuration
 MODEL_CONFIG = {
-    "num_llms": 20,
-    "model_name": "gpt-4o"
+    "num_llms": 23,  # Total number of LLM agents
+    "model_name": "gpt-4o"  # Default model (used when Battle Royale is disabled)
 }
 
 # API configuration
@@ -54,25 +54,47 @@ BATTLE_ROYALE_CONFIG = {
     "custom_models": [
         {
             "name": "gpt-4o",
-            "count": 5,
-            "description": "GPT-4 Omni model"
+            "count": 20,
+            "description": "GPT-4 Omni"
         },
         {
-            "name": "claude-3-7-sonnet-20250219",
-            "count": 5,
-            "description": "Claude 3.7 Sonnet model"
-        },
-        {
-            "name": "grok-3",
-            "count": 5,
-            "description": "Grok-3 model"
-        },
-        {
-            "name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            "count": 5,
-            "description": "Llama-4-Maverick model"
+            "name": "deepseek-ai/DeepSeek-V3-0324",
+            "count": 3,
+            "description": "DeepSeek V3"
         }
     ]
+}
+
+def validate_model_configuration():
+    """
+    Validate that the total number of models matches the configured num_llms.
+    """
+    if BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in BATTLE_ROYALE_CONFIG:
+        total_configured = sum(model["count"] for model in BATTLE_ROYALE_CONFIG["custom_models"])
+        if total_configured != MODEL_CONFIG["num_llms"]:
+            print(f"[config.py] WARNING: Model count mismatch!")
+            print(f"[config.py] MODEL_CONFIG['num_llms'] = {MODEL_CONFIG['num_llms']}")
+            print(f"[config.py] Total custom_models count = {total_configured}")
+            print(f"[config.py] Please update MODEL_CONFIG['num_llms'] to {total_configured}")
+            return False
+        else:
+            print(f"[config.py] Model configuration validated: {total_configured} total agents")
+            return True
+    return True
+
+def get_total_model_count():
+    """
+    Get the total number of models from Battle Royale configuration.
+    """
+    if BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in BATTLE_ROYALE_CONFIG:
+        return sum(model["count"] for model in BATTLE_ROYALE_CONFIG["custom_models"])
+    return MODEL_CONFIG["num_llms"]
+
+# === Auto JSON Fix Configuration ===
+AUTO_JSON_FIX = {
+    "enabled": True,  # Whether to enable post-round automatic JSON fix
+    "create_backup": True,  # Whether to create backup files when fixing
+    "verbose_logging": True,  # Whether to show detailed fix logs
 }
 
 def get_exp_dir(model_name):

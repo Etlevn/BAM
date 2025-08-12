@@ -45,7 +45,15 @@ def chat_with_parrot(prompt, model_name="gpt-4o"):
         )
         survey = Survey(questions=[question])
         results = survey.by(model).run()
-        return str(results[0].answer)
+        
+        # Return the actual answer, not stringified
+        answer = results[0].answer
+        if isinstance(answer, dict) and "llm_response" in answer:
+            return answer["llm_response"]
+        elif answer is None:
+            return "Error: Received None response from model"
+        else:
+            return str(answer)
     except Exception as e:
         return f"Error: {e}"
 
@@ -150,15 +158,8 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         if mode == "refl":
             response = chat_with_llm(prompt_text, agent_model)
             
-            # Extract text content from response (handle both dict and string formats)
-            if isinstance(response, dict) and "llm_response" in response:
-                response_text = response["llm_response"]
-            elif isinstance(response, str):
-                response_text = response
-            else:
-                response_text = str(response)
-            
-            response_text = response_text.strip()
+            # chat_with_llm now returns clean text for reflection mode
+            response_text = response.strip() if isinstance(response, str) else str(response).strip()
             
             reflection_dir = os.path.join(init.INIT_DIR, "prac")
             os.makedirs(reflection_dir, exist_ok=True)
@@ -173,6 +174,12 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         attempt = 1
         while attempt <= max_attempts:
             response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
+            
+            # Check for server/network error pause BEFORE processing
+            while pause_on_server_error(llm_id, round_num, response_json):
+                print(f"[ord.py] Retrying {llm_id} in round {round_num} after server/network error...")
+                response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
+            
             try:
                 # Custom unwrapping logic for llm_response
                 if isinstance(response_json, dict) and "llm_response" in response_json:
@@ -190,26 +197,6 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
                         response_json = raw_response
                     else:
                         raise ValueError("llm_response is neither string nor dict")
-                # Check for connection error pause
-                while pause_on_connection_error(llm_id, round_num, response_json):
-                    print(f"[ord.py] Retrying {llm_id} in round {round_num} after connection error...")
-                    response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
-                    # Re-apply unwrapping after retry
-                    if isinstance(response_json, dict) and "llm_response" in response_json:
-                        raw_response = response_json["llm_response"]
-                        if isinstance(raw_response, str):
-                            try:
-                                inner = json.loads(raw_response)
-                                if isinstance(inner, dict):
-                                    response_json = inner
-                                else:
-                                    raise ValueError("llm_response is not a JSON object")
-                            except Exception:
-                                raise ValueError("Invalid JSON string in llm_response")
-                        elif isinstance(raw_response, dict):
-                            response_json = raw_response
-                        else:
-                            raise ValueError("llm_response is neither string nor dict")
                 break  # Success, exit retry loop
             except ValueError as ve:
                 print(f"\n[RETRY] Attempt {attempt}/3: Detected invalid JSON in 'llm_response' for {llm_id} in round {round_num}")
@@ -235,31 +222,53 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         print(f"[{mode}] Response for {llm_id} in round {round_num} saved to {output_filename}")
         print()
 
-def pause_on_job_failed(llm_id, round_num, response_text):
+def pause_on_server_error(llm_id, round_num, response_data):
     """
-    Detects if Expected Parrot job failed based on response text and pauses for manual retry.
+    Unified function to detect network/server errors and pause for manual retry.
+    Handles Expected Parrot job failures, connection errors, timeouts, and API errors.
     """
-    if isinstance(response_text, str) and "Job failed." in response_text:
-        print(f"\n[CRITICAL] PARROT JOB FAILURE DETECTED")
+    error_detected = False
+    error_type = ""
+    error_details = ""
+    
+    # Case 1: Direct string response with errors
+    if isinstance(response_data, str):
+        if "Job failed." in response_data:
+            error_detected = True
+            error_type = "PARROT JOB FAILURE"
+            error_details = response_data[:500]
+        elif "Error:" in response_data and any(keyword in response_data for keyword in [
+            "timeout", "connection", "network", "server", "HTTPSConnectionPool", "Read timed out"
+        ]):
+            error_detected = True
+            error_type = "NETWORK/CONNECTION ERROR"
+            error_details = response_data[:500]
+    
+    # Case 2: Dictionary with raw_response containing errors
+    elif isinstance(response_data, dict):
+        if "raw_response" in response_data:
+            raw_resp = response_data["raw_response"]
+            if isinstance(raw_resp, str):
+                if "Job failed." in raw_resp:
+                    error_detected = True
+                    error_type = "PARROT JOB FAILURE"
+                    error_details = raw_resp[:500]
+                elif "Error:" in raw_resp and any(keyword in raw_resp for keyword in [
+                    "timeout", "connection", "network", "server", "HTTPSConnectionPool", 
+                    "Read timed out", "All attempts returned None", "Received None response"
+                ]):
+                    error_detected = True
+                    error_type = "NETWORK/CONNECTION ERROR"
+                    error_details = raw_resp[:500]
+    
+    if error_detected:
+        print(f"\n[CRITICAL] {error_type} DETECTED")
         print(f"Agent: {llm_id} | Round: {round_num}")
-        print("Raw Response:", response_text[:500])  # preview only
-        print("Program is now PAUSED due to Parrot job failure.")
+        print(f"Error Details: {error_details}")
+        print("Program is now PAUSED due to server/network error.")
         input("Press Enter when the issue is resolved to retry this agent...\n")
         return True
-    return False
-
-def pause_on_connection_error(llm_id, round_num, raw_response):
-    """
-    If a connection error is detected, pause and return True to indicate retry is needed.
-    Otherwise, return False.
-    """
-    if "raw_response" in raw_response and "Error: Connection error." in raw_response["raw_response"]:
-        print(f"\n[CRITICAL] LLM CONNECTION ERROR DETECTED")
-        print(f"Agent: {llm_id} | Round: {round_num}")
-        print("Raw Response:", raw_response["raw_response"])
-        print("Program is now PAUSED. Please resolve the issue and press Enter to retry this agent...")
-        input("Press Enter when ready to retry...\n")
-        return True  # signal that we should retry
+    
     return False
 
 def read_file(file_path):

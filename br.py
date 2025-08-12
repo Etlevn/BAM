@@ -126,8 +126,7 @@ class BattleRoyaleManager:
         """
         Generate the assignment of models to agent IDs.
         """
-        # Set fixed seed for reproducible assignments
-        random.seed(FIXED_SEED)
+        # No fixed seed - use truly random assignment
         
         # Create list of model assignments
         model_list = []
@@ -263,7 +262,6 @@ class BattleRoyaleManager:
         print("=== Battle Royale Model Assignment Summary ===")
         print(f"Total Agents: {self.model_config['total_agents']}")
         print(f"Assignment Strategy: {self.model_config.get('assignment_strategy', 'random')}")
-        print(f"Random Seed: {self.model_config.get('seed', 'None')}")
         print()
         
         stats = self.get_model_statistics()
@@ -279,8 +277,7 @@ class BattleRoyaleManager:
 def create_battle_royale_config(
     total_agents: int = 20,
     models: List[Dict] = None,
-    assignment_strategy: str = "sequential",
-    seed: Optional[int] = FIXED_SEED
+    assignment_strategy: str = "sequential"
 ) -> Dict:
     """
     Create a Battle Royale configuration.
@@ -289,7 +286,6 @@ def create_battle_royale_config(
         total_agents: Total number of agents in the experiment
         models: List of model configurations
         assignment_strategy: Strategy for assigning models ("random", "sequential", "balanced")
-        seed: Random seed for reproducible assignments
         
     Returns:
         Configuration dictionary
@@ -305,8 +301,7 @@ def create_battle_royale_config(
     return {
         "total_agents": total_agents,
         "models": models,
-        "assignment_strategy": assignment_strategy,
-        "seed": seed
+        "assignment_strategy": assignment_strategy
     }
 
 
@@ -345,8 +340,7 @@ if __name__ == "__main__":
             {"name": "grok-3", "count": 3, "description": "Grok-3"},
             {"name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", "count": 2, "description": "Llama-4-Maverick"}
         ],
-        assignment_strategy="random",
-        seed=42
+        assignment_strategy="random"
     )
     
     manager2 = BattleRoyaleManager(custom_config)

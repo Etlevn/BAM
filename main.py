@@ -10,7 +10,10 @@ import br  # Battle Royale module
 
 # === Experiment Configuration ===
 WORK_DIR = config.BASE_DIR  # <-- Use config file
-NUM_LLMs = config.MODEL_CONFIG["num_llms"]  # Number of LLM agents
+
+# Validate and get model configuration
+config.validate_model_configuration()
+NUM_LLMs = config.get_total_model_count()  # Auto-calculate from Battle Royale config if enabled
 MODEL_NAME = config.MODEL_CONFIG["model_name"]  # <-- Set desired model name here (e.g., "gpt-4", "claude-3-5-sonnet-20240620")
 
 def run_experiment(mode="main", model_name=MODEL_NAME, battle_manager=None):
@@ -67,6 +70,13 @@ def run_experiment(mode="main", model_name=MODEL_NAME, battle_manager=None):
             # Single model mode: use default model_name
             ord.run_experiment_round(exp_run_dir, round_num, NUM_LLMs, total_rounds, mode=mode, model_name=model_name)
 
+        # Step 3.5: Post-round JSON check and fix (before processing)
+        if config.AUTO_JSON_FIX["enabled"]:
+            import utils
+            fix_results = utils.post_round_json_fix(exp_run_dir, round_num, NUM_LLMs)
+            if fix_results.get("fixed_files", 0) > 0:
+                print(f"[main.py] Fixed {fix_results['fixed_files']} JSON files in round {round_num}")
+
         # Step 4: Process output and update order book
         proc.prepare_next_round(WORK_DIR, exp_run_dir, round_num, NUM_LLMs)
 
@@ -101,16 +111,14 @@ if __name__ == "__main__":
             br_config = br.create_battle_royale_config(
                 total_agents=NUM_LLMs,
                 models=config.BATTLE_ROYALE_CONFIG["custom_models"],
-                assignment_strategy=config.BATTLE_ROYALE_CONFIG["assignment_strategy"],
-                seed=config.BATTLE_ROYALE_CONFIG["seed"]
+                assignment_strategy=config.BATTLE_ROYALE_CONFIG["assignment_strategy"]
             )
         else:
             print(f"[main.py] Using default model configuration")
             # Create Battle Royale configuration with default models
             br_config = br.create_battle_royale_config(
                 total_agents=NUM_LLMs,
-                assignment_strategy=config.BATTLE_ROYALE_CONFIG["assignment_strategy"],
-                seed=config.BATTLE_ROYALE_CONFIG["seed"]
+                assignment_strategy=config.BATTLE_ROYALE_CONFIG["assignment_strategy"]
             )
         
         # Create Battle Royale manager

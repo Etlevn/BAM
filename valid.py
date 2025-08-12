@@ -41,6 +41,11 @@ def attempt_valid_orders(prompt_text, limit_price_min, limit_price_max, max_quan
     for attempt in range(1, max_retries + 1):
         print(f"[valid.py] Retrying for valid orders (attempt {attempt})...")
         response_text = chat_with_llm(prompt_text, model_name)
+        
+        if response_text is None:
+            print(f"[valid.py] Attempt {attempt} returned None response, skipping...")
+            continue
+        
         try:
             cleaned_text = re.sub(r"```json\s*|\s*```", "", response_text.strip(), flags=re.IGNORECASE)
             response_json = json.loads(cleaned_text)
@@ -54,7 +59,7 @@ def attempt_valid_orders(prompt_text, limit_price_min, limit_price_max, max_quan
     # After retries, clip
     print(f"[valid.py] Orders remain invalid after retries. Clipping to boundary.")
     if not isinstance(response_json, dict):
-        return {"raw_response": response_text}, False
+        return {"raw_response": response_text if response_text is not None else "Error: All validation attempts failed"}, False
 
     fixed_orders = []
     for order in response_json.get("submitted_orders", []):

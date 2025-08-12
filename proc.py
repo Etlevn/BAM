@@ -37,6 +37,7 @@ def prepare_next_round(base_dir, exp_run_dir, round_num, num_llms):
         with open(json_file, "r", encoding="utf-8") as file:
             try:
                 llm_data = json.load(file)
+                
             except json.JSONDecodeError:
                 print(f"Error: Invalid JSON format in {json_file}")
                 orders_data.append([llm_id, "NA", 0, 0])

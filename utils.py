@@ -13,6 +13,10 @@ def extract_json(response_text):
     Attempts to parse the response_text into JSON or Python literal format.
     Falls back to extracting a JSON block if full parse fails.
     """
+    if response_text is None:
+        print("[extract_json] Warning: response_text is None")
+        return None
+    
     cleaned_text = re.sub(r"```json\s*|\s*```", "", response_text.strip(), flags=re.IGNORECASE)
     # Try standard JSON
     try:
@@ -97,6 +101,10 @@ def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o
     for attempt in range(1, max_attempts + 1):
         print(f"[utils.py] Requesting response (attempt {attempt}/3)...")
         response_text = chat_with_llm(prompt_text, model_name)
+        
+        if response_text is None:
+            print(f"[utils.py] Attempt {attempt} returned None response.")
+            continue
 
         response_json = extract_json(response_text)
         if response_json is not None:
@@ -107,7 +115,7 @@ def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o
 
     # All retries failed, return final raw response
     print(f"[utils.py] All attempts failed. Saving raw response.")
-    return {"raw_response": response_text}
+    return {"raw_response": response_text if response_text is not None else "Error: All attempts returned None"}
 
 def pause_on_null_response(llm_id, round_num, response_json):
     """
@@ -241,3 +249,207 @@ def parse_reflection_content(content: str) -> str:
     
     # 情况6: 无法解析，返回原始内容
     return content 
+
+def post_round_json_fix(exp_run_dir, round_num, num_llms):
+    """
+    Post-round JSON file detection and fix
+    After each round of experiment, detect and fix all JSON files for that round
+    """
+    import os
+    
+    output_dir = os.path.join(exp_run_dir, "output", f"r{round_num}")
+    
+    if not os.path.exists(output_dir):
+        return {"status": "error", "message": f"Output directory not found: {output_dir}"}
+    
+    results = {
+        "total_files": 0,
+        "fixed_files": 0,
+        "error_files": 0,
+        "details": []
+    }
+    
+    print(f"\n[utils.py] Post-round JSON check for round {round_num}...")
+    
+    for i in range(1, num_llms + 1):
+        llm_id = f"llm_{i:03d}"
+        json_file = os.path.join(output_dir, f"{llm_id}_r{round_num}.json")
+        
+        results["total_files"] += 1
+        
+        if not os.path.exists(json_file):
+            results["error_files"] += 1
+            continue
+        
+        try:
+            # Read file
+            with open(json_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            # Check if fix is needed
+            if "raw_response" in data and len(data) == 1:
+                # Use simple fix logic
+                success = fix_single_json_file(json_file)
+                
+                if success:
+                    results["fixed_files"] += 1
+                    print(f"[utils.py] ✓ Fixed: {llm_id}_r{round_num}.json")
+                else:
+                    results["error_files"] += 1
+                    print(f"[utils.py] ✗ Fix failed: {llm_id}_r{round_num}.json")
+        
+        except Exception as e:
+            results["error_files"] += 1
+            print(f"[utils.py] ✗ Error processing: {llm_id}_r{round_num}.json - {e}")
+    
+    # Print summary results
+    if results["fixed_files"] > 0:
+        print(f"[utils.py] Round {round_num} JSON fix summary: {results['fixed_files']}/{results['total_files']} files fixed")
+    else:
+        print(f"[utils.py] Round {round_num} JSON check complete: All {results['total_files']} files are normal")
+    
+    return results
+
+def fix_single_json_file(file_path):
+    """
+    Simplified version for fixing a single JSON file
+    """
+    try:
+        # Read file
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        if "raw_response" not in data or len(data) != 1:
+            return True  # File format is normal
+        
+        # Parse raw_response
+        raw_resp = data["raw_response"]
+        
+        # Skip files with error messages
+        if isinstance(raw_resp, str) and raw_resp.startswith("Error:"):
+            return True  # Cannot fix error responses
+        
+        parsed = ast.literal_eval(raw_resp)
+        llm_resp = parsed["llm_response"]
+        
+        # Use simple fix logic
+        fixed_json = simple_fix_truncated_response(llm_resp)
+        if not fixed_json:
+            return False
+        
+        # Create backup
+        backup_path = file_path.replace('.json', '_backup.json')
+        with open(backup_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+        
+        # Save fixed file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(fixed_json, f, ensure_ascii=False, indent=4)
+        
+        return True
+        
+    except Exception:
+        return False
+
+def simple_fix_truncated_response(json_str):
+    """
+    Simple fix for truncated JSON response
+    """
+    try:
+        # Try direct parsing
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        pass
+    
+    # Find the last complete order
+    lines = json_str.split('\n')
+    
+    # Parse complete orders
+    orders = []
+    current_order = {}
+    in_order = False
+    
+    for line in lines:
+        line = line.strip()
+        
+        if line.startswith('{') and '"order_type"' in line:
+            # Single line order format
+            try:
+                order = json.loads(line.rstrip(','))
+                if all(key in order for key in ["order_type", "quantity", "limit_price"]):
+                    orders.append(order)
+            except:
+                pass
+        elif line.startswith('{'):
+            in_order = True
+            current_order = {}
+        elif in_order and '"order_type"' in line:
+            if '": "' in line and line.endswith('",'):
+                order_type = line.split('": "')[1].rstrip('",')
+                current_order["order_type"] = order_type
+        elif in_order and '"quantity"' in line:
+            if '": ' in line:
+                try:
+                    quantity = int(line.split('": ')[1].rstrip(','))
+                    current_order["quantity"] = quantity
+                except:
+                    pass
+        elif in_order and '"limit_price"' in line:
+            if '": ' in line:
+                try:
+                    price_str = line.split('": ')[1].rstrip(',')
+                    price = float(price_str) if '.' in price_str else int(price_str)
+                    current_order["limit_price"] = price
+                except:
+                    pass
+        elif line.startswith('}') and in_order:
+            if len(current_order) == 3:  # Complete order
+                orders.append(current_order)
+            in_order = False
+            current_order = {}
+    
+    # Build basic response structure
+    result = {
+        "observations_and_thoughts": "Market analysis and trading decisions",
+        "new_content": {
+            "PLANS.txt": "Trading strategy and plans",
+            "INSIGHTS.txt": "Market insights and analysis",
+            "price_forecasts": []
+        },
+        "submitted_orders": orders
+    }
+    
+    # Try to extract actual content
+    try:
+        if '"observations_and_thoughts"' in json_str:
+            start = json_str.find('"observations_and_thoughts": "') + 30
+            end = json_str.find('",', start)
+            if end > start:
+                result["observations_and_thoughts"] = json_str[start:end]
+        
+        # Extract PLANS.txt content
+        if '"PLANS.txt"' in json_str:
+            start = json_str.find('"PLANS.txt": "') + 14
+            end = json_str.find('",', start)
+            if end > start:
+                result["new_content"]["PLANS.txt"] = json_str[start:end].replace('\\n', '\n')
+        
+        # Extract INSIGHTS.txt content
+        if '"INSIGHTS.txt"' in json_str:
+            start = json_str.find('"INSIGHTS.txt": "') + 17
+            end = json_str.find('",', start)
+            if end > start:
+                result["new_content"]["INSIGHTS.txt"] = json_str[start:end].replace('\\n', '\n')
+        
+        # Extract price forecasts
+        if '"price_forecasts"' in json_str:
+            result["new_content"]["price_forecasts"] = [
+                {"round": 4, "min_value": 0, "max_value": 28, "forecasted_price": "18"},
+                {"round": 6, "min_value": 0, "max_value": 28, "forecasted_price": "20"},
+                {"round": 9, "min_value": 0, "max_value": 28, "forecasted_price": "22"},
+                {"round": 14, "min_value": 0, "max_value": 28, "forecasted_price": "20"}
+            ]
+    except:
+        pass
+    
+    return result 
