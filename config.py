@@ -34,17 +34,17 @@ EXPERIMENT_CONFIG = {
     "total_rounds": 20
 }
 
-# Model configuration
-MODEL_CONFIG = {
-    "num_llms": 23,  # Total number of LLM agents
-    "model_name": "gpt-4o"  # Default model (used when Battle Royale is disabled)
-}
-
 # API configuration
 API_CONFIG = {
     "api_mode": "expected_parrot",  # "openai" or "expected_parrot"
     "openai_api_key": os.getenv("OPENAI_API_KEY", ""),  # Load from .env file
     "expected_parrot_api_key": os.getenv("EXPECTED_PARROT_API_KEY", "")  # Load from .env file
+}
+
+# Model configuration
+MODEL_CONFIG = {
+    "num_llms": 23,  # Total number of LLM agents
+    "model_name": "gpt-4o"  # Default model (used when Battle Royale is disabled)
 }
 
 # Battle Royale configuration
