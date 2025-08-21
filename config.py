@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Base directory - use current working directory
-BASE_DIR = os.getcwd()
+# Base directory - use the directory where this config file is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Experiment directories
 EXP_DIR = os.path.join(BASE_DIR, "exp")
@@ -53,14 +53,14 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "gpt-4o",
+            "name": "claude-3-7-sonnet-20250219",
             "count": 20,
-            "description": "GPT-4 Omni"
+            "description": "claude-3-7-sonnet"
         },
         {
-            "name": "deepseek-ai/DeepSeek-V3-0324",
-            "count": 3,
-            "description": "DeepSeek V3"
+            "name": "gemini-2.0-flash-001",
+            "count": 6,
+            "description": "gemini-2.0-flash"
         }
     ]
 }
