@@ -2,23 +2,23 @@ from edsl import Model, QuestionFreeText, Survey
 from dotenv import load_dotenv
 import os
 
-# 加载 .env 文件中的环境变量
+# Load environment variables from .env file
 load_dotenv()
 
-# 创建模型实例（如 GPT-4o）
+# Create model instance (e.g., GPT-4o)
 model = Model("gpt-4o")
 
-# 创建自由文本问题
+# Create free text question
 question = QuestionFreeText(
     question_name="relativity",
     question_text="Can you summarize the theory of relativity in 2 sentences?"
 )
 
-# 创建调查并添加问题
+# Create survey and add question
 survey = Survey(questions=[question])
 
-# 运行调查并获取结果
+# Run survey and get results
 results = survey.by(model).run()
 
-# 打印模型的回复
-print("模型回复：", results[0].answer)
+# Print model response
+print("Response：", results[0].answer)

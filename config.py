@@ -43,24 +43,27 @@ API_CONFIG = {
 
 # Model configuration
 MODEL_CONFIG = {
-    "num_llms": 23,  # Total number of LLM agents
-    "model_name": "gpt-4o"  # Default model (used when Battle Royale is disabled)
+    "num_llms": 20,  # Total number of LLM agents
+    "model_name": "deepcogito/cogito-v2-preview-deepseek-671b",  # Default model (used when Battle Royale is disabled)
+    "service_name": "together"  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
 
 # Battle Royale configuration
 BATTLE_ROYALE_CONFIG = {
-    "enabled": True,  # Enable/disable Battle Royale mode
+    "enabled": False,  # Enable/disable Battle Royale mode
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
             "name": "claude-3-7-sonnet-20250219",
-            "count": 20,
-            "description": "claude-3-7-sonnet"
+            "count": 10,
+            "description": "claude-3-7-sonnet",
+            "service_name": None  
         },
         {
             "name": "gemini-2.0-flash-001",
-            "count": 6,
-            "description": "gemini-2.0-flash"
+            "count": 20,
+            "description": "gemini-2.0-flash",
+            "service_name": None
         }
     ]
 }
@@ -90,11 +93,16 @@ def get_total_model_count():
         return sum(model["count"] for model in BATTLE_ROYALE_CONFIG["custom_models"])
     return MODEL_CONFIG["num_llms"]
 
+# === Debug Configuration ===
+DEBUG_CONFIG = {
+    "save_raw_responses": False,  # Whether to save raw LLM responses before parsing
+    "debug_directory": "debug"  # Directory to save debug files (relative to experiment directory)
+}
+
 # === Auto JSON Fix Configuration ===
 AUTO_JSON_FIX = {
     "enabled": True,  # Whether to enable post-round automatic JSON fix
     "create_backup": True,  # Whether to create backup files when fixing
-    "verbose_logging": True,  # Whether to show detailed fix logs
 }
 
 def get_exp_dir(model_name):

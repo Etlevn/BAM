@@ -119,7 +119,7 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
 
             if os.path.exists(prev_market_txt):
                 with open(prev_market_txt, "r", encoding="utf-8") as f:
-                    market_content = f.read().strip() + "\n"  # ✅ 追加整份内容
+                    market_content = f.read().strip() + "\n"  # ✅ Append entire content
                     for line in market_content.splitlines():
                         if "Market price" in line:
                             try:

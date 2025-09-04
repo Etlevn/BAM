@@ -6,18 +6,30 @@ Extracted from ord.py to improve code organization.
 import json
 import re
 import ast
+import config
 from typing import Dict, Any, Optional
 
 def extract_json(response_text):
     """
     Attempts to parse the response_text into JSON or Python literal format.
     Falls back to extracting a JSON block if full parse fails.
+    Handles XML-like tags by removing them completely.
     """
     if response_text is None:
         print("[extract_json] Warning: response_text is None")
         return None
     
+    # Remove all XML-like tags (including <think>, <reasoning>, etc.)
+    # This handles unclosed tags like <think> used by models to indicate reasoning mode
+    response_text = re.sub(r'<[^>]*>', '', response_text)
+    
+    # Clean the text
     cleaned_text = re.sub(r"```json\s*|\s*```", "", response_text.strip(), flags=re.IGNORECASE)
+    # Remove invalid control characters
+    cleaned_text = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', cleaned_text)
+    # Normalize whitespace (preserve JSON structure)
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
+    
     # Try standard JSON
     try:
         return json.loads(cleaned_text)
@@ -41,13 +53,21 @@ def extract_json_block(text):
     import re
     
     # Pattern to match JSON objects with proper string handling
+    # Look for the largest JSON object first
     json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
     matches = re.findall(json_pattern, text)
     
+    # Sort matches by length (descending) to try the largest JSON first
+    matches.sort(key=len, reverse=True)
+    
     for match in matches:
         try:
-            return json.loads(match)
-        except json.JSONDecodeError:
+            parsed = json.loads(match)
+            print(f"[extract_json_block] Successfully parsed JSON block of length {len(match)}")
+            print(f"[extract_json_block] Parsed JSON keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'Not a dict'}")
+            return parsed
+        except json.JSONDecodeError as e:
+            print(f"[extract_json_block] Failed to parse JSON block: {e}")
             continue
     
     # Fallback to brace counting method
@@ -89,7 +109,7 @@ def extract_json_block(text):
     print("[extract_json_block] No valid JSON block found.")
     return None
 
-def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o"):
+def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o", exp_run_dir=None, llm_id=None, round_num=None):
     """
     Tries to get a valid JSON response from the LLM.
     Includes retry logic for structured failure detection.
@@ -97,6 +117,8 @@ def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o
     """
     # Import here to avoid circular import
     from ord import chat_with_llm
+    import os
+    import time
     
     for attempt in range(1, max_attempts + 1):
         print(f"[utils.py] Requesting response (attempt {attempt}/3)...")
@@ -106,9 +128,42 @@ def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o
             print(f"[utils.py] Attempt {attempt} returned None response.")
             continue
 
+        # DEBUG: Save raw response before parsing (configurable)
+        if response_text and config.DEBUG_CONFIG["save_raw_responses"]:
+            if exp_run_dir:
+                # Create debug directory inside current experiment directory
+                debug_dir = os.path.join(exp_run_dir, config.DEBUG_CONFIG["debug_directory"])
+            else:
+                # Fallback to root directory if no experiment directory provided
+                debug_dir = config.DEBUG_CONFIG["debug_directory"]
+            os.makedirs(debug_dir, exist_ok=True)
+            
+            # Generate debug filename similar to output files
+            if llm_id and round_num is not None:
+                debug_filename = f"{debug_dir}/{llm_id}_r{round_num}_debug.txt"
+            else:
+                # Fallback to timestamp-based naming if no llm_id/round_num provided
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                debug_filename = f"{debug_dir}/raw_response_attempt_{attempt}_{timestamp}.txt"
+            
+            with open(debug_filename, "w", encoding="utf-8") as f:
+                f.write(f"=== RAW RESPONSE (Attempt {attempt}) ===\n")
+                f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Model: {model_name}\n")
+                f.write(f"Response Length: {len(response_text)} characters\n")
+                f.write(f"Response Preview: {response_text[:200]}...\n")
+                f.write("\n=== FULL RESPONSE ===\n")
+                f.write(response_text)
+                f.write("\n=== END RESPONSE ===\n")
+            
+            print(f"[utils.py] DEBUG: Raw response saved to {debug_filename}")
+            print(f"[utils.py] Response length: {len(response_text)} characters")
+            print(f"[utils.py] Response preview: {response_text[:100]}...")
+
         response_json = extract_json(response_text)
         if response_json is not None:
             print(f"[utils.py] JSON parsed successfully on attempt {attempt}.")
+            print(f"[utils.py] Parsed JSON keys: {list(response_json.keys())}")
             return response_json
         else:
             print(f"[utils.py] Attempt {attempt} failed to parse JSON.")
@@ -169,29 +224,29 @@ def pause_on_null_response(llm_id, round_num, response_json):
 
 def parse_reflection_content(content: str) -> str:
     """
-    解析reflection内容，处理所有可能的格式
-    与成功修复所有文件的逻辑完全一致
+    Parse reflection content, handle all possible formats
+    Logic is completely consistent with successfully fixing all files
     
     Args:
-        content: 原始reflection内容
+        content: Original reflection content
         
     Returns:
-        解析后的纯文本内容
+        Parsed plain text content
     """
     if not content or content.strip() == "":
         return ""
     
     content = content.strip()
     
-    # 情况1: 已经是纯文本
+            # Case 1: Already pure text
     if not content.startswith("{") and not content.startswith("'{"):
         return content
     
-    # 情况2: 处理空响应
+            # Case 2: Handle empty response
     if content == "{'llm_response': None}" or content == '{"llm_response": null}':
         return ""
     
-    # 情况3: 使用ast.literal_eval解析字典格式（最准确的方法）
+            # Case 3: Use ast.literal_eval to parse dict format (most accurate method)
     if (content.startswith("{") and content.endswith("}")) or (content.startswith("{'") and content.endswith("'}")):
         try:
             parsed = ast.literal_eval(content)
@@ -199,13 +254,13 @@ def parse_reflection_content(content: str) -> str:
                 response = parsed["llm_response"]
                 if response is None:
                     return ""
-                # ast.literal_eval已经处理了转义字符，直接返回
+                # ast.literal_eval has already handled escape characters, return directly
                 return str(response)
         except (ValueError, SyntaxError):
-            # 如果解析失败，继续尝试其他方法
+            # If parsing fails, continue trying other methods
             pass
     
-    # 情况4: JSON格式的字典
+            # Case 4: JSON format dictionary
     if content.startswith("{") and content.endswith("}"):
         try:
             import json
@@ -216,30 +271,30 @@ def parse_reflection_content(content: str) -> str:
                     return ""
                 return str(response)
         except json.JSONDecodeError:
-            # 继续尝试其他方法
+            # Continue trying other methods
             pass
     
-    # 情况5: 使用正则表达式提取（保留原始转义字符处理）
+            # Case 5: Use regex extraction (preserve original escape character handling)
     if "llm_response" in content:
         try:
             import re
-            # 匹配双引号 - 使用贪婪匹配获取完整内容
+            # Match double quotes - use greedy matching to get complete content
             pattern = r"'llm_response':\s*\"(.*)\""
             match = re.search(pattern, content, re.DOTALL)
             if match:
                 extracted = match.group(1)
-                # 处理转义字符
+                # Handle escape characters
                 extracted = extracted.replace('\\n', '\n').replace('\\t', '\t')
                 if extracted == "None" or extracted == "":
                     return ""
                 return extracted
             
-            # 匹配单引号 - 使用贪婪匹配获取完整内容
+            # Match single quotes - use greedy matching to get complete content
             pattern = r"'llm_response':\s*'(.*)'"
             match = re.search(pattern, content, re.DOTALL)
             if match:
                 extracted = match.group(1)
-                # 处理转义字符
+                # Handle escape characters
                 extracted = extracted.replace('\\n', '\n').replace('\\t', '\t')
                 if extracted == "None" or extracted == "":
                     return ""
@@ -247,7 +302,7 @@ def parse_reflection_content(content: str) -> str:
         except Exception:
             pass
     
-    # 情况6: 无法解析，返回原始内容
+    # Case 6: Unable to parse, return original content
     return content 
 
 def post_round_json_fix(exp_run_dir, round_num, num_llms):
@@ -256,6 +311,10 @@ def post_round_json_fix(exp_run_dir, round_num, num_llms):
     After each round of experiment, detect and fix all JSON files for that round
     """
     import os
+    
+    # Check if auto JSON fix is enabled
+    if not config.AUTO_JSON_FIX["enabled"]:
+        return {"status": "disabled", "message": "Auto JSON fix is disabled in config"}
     
     output_dir = os.path.join(exp_run_dir, "output", f"r{round_num}")
     
@@ -337,10 +396,12 @@ def fix_single_json_file(file_path):
         if not fixed_json:
             return False
         
-        # Create backup
-        backup_path = file_path.replace('.json', '_backup.json')
-        with open(backup_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        # Create backup if enabled
+        if config.AUTO_JSON_FIX["create_backup"]:
+            backup_path = file_path.replace('.json', '_backup.json')
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            print(f"[utils.py] Created backup: {backup_path}")
         
         # Save fixed file
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -357,7 +418,8 @@ def simple_fix_truncated_response(json_str):
     """
     try:
         # Try direct parsing
-        return json.loads(json_str)
+        parsed = json.loads(json_str)
+        return parsed
     except json.JSONDecodeError:
         pass
     
@@ -443,13 +505,25 @@ def simple_fix_truncated_response(json_str):
         
         # Extract price forecasts
         if '"price_forecasts"' in json_str:
-            result["new_content"]["price_forecasts"] = [
-                {"round": 4, "min_value": 0, "max_value": 28, "forecasted_price": "18"},
-                {"round": 6, "min_value": 0, "max_value": 28, "forecasted_price": "20"},
-                {"round": 9, "min_value": 0, "max_value": 28, "forecasted_price": "22"},
-                {"round": 14, "min_value": 0, "max_value": 28, "forecasted_price": "20"}
-            ]
-    except:
-        pass
+            start = json_str.find('"price_forecasts": [') + 20
+            end = json_str.find(']', start)
+            if end > start:
+                forecasts_str = json_str[start:end]
+                try:
+                    # Try to parse as JSON array
+                    forecasts = json.loads(f"[{forecasts_str}]")
+                    result["new_content"]["price_forecasts"] = forecasts
+                except:
+                    result["new_content"]["price_forecasts"] = []
+            else:
+                result["new_content"]["price_forecasts"] = []
+    except Exception as e:
+        # If any error occurs during extraction, ensure basic structure is maintained
+        print(f"[utils.py] Warning: Error during content extraction: {e}")
+        # Ensure price_forecasts field exists
+        if "new_content" not in result:
+            result["new_content"] = {}
+        if "price_forecasts" not in result["new_content"]:
+            result["new_content"]["price_forecasts"] = []
     
     return result 

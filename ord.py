@@ -27,6 +27,23 @@ def chat_with_llm(prompt, model_name="gpt-4o"):
     else:
         raise ValueError(f"Unknown API mode: {api_mode}")
 
+def get_service_name_for_model(model_name):
+    """
+    Get service name for a model from configuration.
+    Uses different logic for Battle Royale mode vs single model mode.
+    """
+    # Check if Battle Royale is enabled
+    if config.BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in config.BATTLE_ROYALE_CONFIG:
+        # Battle Royale mode: only look in custom_models
+        for model_config in config.BATTLE_ROYALE_CONFIG["custom_models"]:
+            if model_config["name"] == model_name:
+                return model_config.get("service_name")
+        # If model not found in custom_models, return None (no service needed)
+        return None
+    else:
+        # Single model mode: use MODEL_CONFIG
+        return config.MODEL_CONFIG.get("service_name")
+
 def chat_with_parrot(prompt, model_name="gpt-4o"):
     """
     Sends a prompt to Expected Parrot via EDSL Model interface.
@@ -38,7 +55,17 @@ def chat_with_parrot(prompt, model_name="gpt-4o"):
         if ep_api_key:
             os.environ["EXPECTED_PARROT_API_KEY"] = ep_api_key
         
-        model = Model(model_name)
+        # Get service name from config if available
+        service_name = get_service_name_for_model(model_name)
+        
+        # Only use service_name if it's explicitly set and not None/empty
+        if service_name and service_name.strip():
+            print(f"[ord.py] Using service '{service_name}' for model '{model_name}'")
+            model = Model(model_name, service_name=service_name)
+        else:
+            print(f"[ord.py] No service specified for model '{model_name}', using default")
+            model = Model(model_name)
+            
         question = QuestionFreeText(
             question_name="llm_response",
             question_text=prompt
@@ -173,12 +200,12 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         max_attempts = 3
         attempt = 1
         while attempt <= max_attempts:
-            response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
+            response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model, exp_run_dir=exp_run_dir, llm_id=llm_id, round_num=round_num)
             
             # Check for server/network error pause BEFORE processing
             while pause_on_server_error(llm_id, round_num, response_json):
                 print(f"[ord.py] Retrying {llm_id} in round {round_num} after server/network error...")
-                response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model)
+                response_json = utils.try_get_valid_json(prompt_text, contents, model_name=agent_model, exp_run_dir=exp_run_dir, llm_id=llm_id, round_num=round_num)
             
             try:
                 # Custom unwrapping logic for llm_response
@@ -280,7 +307,7 @@ def read_file(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
     
-    # 如果是reflection文件，自动解析格式
+            # If it's a reflection file, automatically parse the format
     if "reflection" in file_path:
         from utils import parse_reflection_content
         return parse_reflection_content(content)
