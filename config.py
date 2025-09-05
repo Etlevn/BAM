@@ -68,30 +68,18 @@ BATTLE_ROYALE_CONFIG = {
     ]
 }
 
-def validate_model_configuration():
+def get_llm_count():
     """
-    Validate that the total number of models matches the configured num_llms.
+    Get the correct number of LLMs based on current mode.
+    Returns the sum of custom_models in Battle Royale mode, or MODEL_CONFIG['num_llms'] in single model mode.
     """
     if BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in BATTLE_ROYALE_CONFIG:
         total_configured = sum(model["count"] for model in BATTLE_ROYALE_CONFIG["custom_models"])
-        if total_configured != MODEL_CONFIG["num_llms"]:
-            print(f"[config.py] WARNING: Model count mismatch!")
-            print(f"[config.py] MODEL_CONFIG['num_llms'] = {MODEL_CONFIG['num_llms']}")
-            print(f"[config.py] Total custom_models count = {total_configured}")
-            print(f"[config.py] Please update MODEL_CONFIG['num_llms'] to {total_configured}")
-            return False
-        else:
-            print(f"[config.py] Model configuration validated: {total_configured} total agents")
-            return True
-    return True
-
-def get_total_model_count():
-    """
-    Get the total number of models from Battle Royale configuration.
-    """
-    if BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in BATTLE_ROYALE_CONFIG:
-        return sum(model["count"] for model in BATTLE_ROYALE_CONFIG["custom_models"])
-    return MODEL_CONFIG["num_llms"]
+        print(f"[config.py] Battle Royale mode enabled: using {total_configured} total agents from custom_models")
+        return total_configured
+    else:
+        print(f"[config.py] Single model mode: using {MODEL_CONFIG['num_llms']} agents")
+        return MODEL_CONFIG["num_llms"]
 
 # === Debug Configuration ===
 DEBUG_CONFIG = {

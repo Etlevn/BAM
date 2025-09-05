@@ -11,9 +11,8 @@ import br  # Battle Royale module
 # === Experiment Configuration ===
 WORK_DIR = config.BASE_DIR  # <-- Use config file
 
-# Validate and get model configuration
-config.validate_model_configuration()
-NUM_LLMs = config.get_total_model_count()  # Auto-calculate from Battle Royale config if enabled
+# Get model configuration
+NUM_LLMs = config.get_llm_count()  # Auto-calculate from Battle Royale config if enabled
 MODEL_NAME = config.MODEL_CONFIG["model_name"]  # <-- Set desired model name here (e.g., "gpt-4", "claude-3-5-sonnet-20240620")
 
 def run_experiment(mode="main", model_name=MODEL_NAME, battle_manager=None):
