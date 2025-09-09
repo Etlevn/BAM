@@ -122,7 +122,7 @@ def analyze(base_dir: Path, fundamental_value: float) -> pd.DataFrame:
             continue
 
         actual_rounds = len(prices) - 1
-        # 仅保留正式轮：轮次 >= 20
+        # Keep only formal runs: rounds >= 20
         if actual_rounds < 20:
             print(f"[SKIPPED] {exp_name} rounds={actual_rounds} (<20)")
             continue

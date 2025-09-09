@@ -73,8 +73,8 @@ def summarize_metrics(df: pd.DataFrame, metrics: List[str]) -> pd.DataFrame:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='ROB 稳健性统计脚本（从 robust.ipynb 提取）')
-    parser.add_argument('--config', type=str, default=None, help='配置文件路径（默认 anal/anal_config.json）')
+    parser = argparse.ArgumentParser(description='ROB robustness stats script (from robust.ipynb)')
+    parser.add_argument('--config', type=str, default=None, help='Path to config (default: anal/anal_config.json)')
     args = parser.parse_args()
 
     try:

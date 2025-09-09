@@ -153,7 +153,7 @@ class OutputIntegrator:
         """Integrate output data for a single simulation_index"""
         print(f"Processing simulation_index: {simulation_index}")
         
-        # 获取LLM类型映射
+        # Get LLM type mapping
         llm_type_mapping = self.get_llm_type_mapping(simulation_index)
         market_type = self.config.get('market_type', 'unknown')
         
@@ -165,7 +165,7 @@ class OutputIntegrator:
 
         print(f"Rounds found: {rounds}")
         
-        # 收集所有数据
+        # Collect all rows
         all_data = []
         output_dir = self.exp_dir / simulation_index / 'output'
         
@@ -246,10 +246,10 @@ def main():
         integrator = OutputIntegrator(args.config)
         
         if args.simulation_index:
-            # 处理单个simulation_index
+            # Process single simulation_index
             integrator.integrate_simulation_output(args.simulation_index)
         else:
-            # 处理所有simulation_index
+            # Process all simulation_index
             integrator.integrate_all_outputs()
     
     except Exception as e:

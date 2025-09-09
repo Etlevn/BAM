@@ -86,7 +86,7 @@ class BatchMerger:
             print(f"Warning: experiment_directory not found: {exp_dir}")
             return rx_files
         
-        # 获取所有simulation_index
+        # Get all simulation_index
         simulation_indices = self._get_simulation_indices_in_dir(exp_dir)
         
         for sim_idx in simulation_indices:
@@ -134,7 +134,7 @@ class BatchMerger:
         """Merge all found target CSV files"""
         print("Start searching for target CSV files...")
         
-        # 发现所有experiment_directory
+        # Discover all experiment_directory
         exp_dirs = self.discover_experiment_directories()
         
         if not exp_dirs:
@@ -145,7 +145,7 @@ class BatchMerger:
         for exp_dir in exp_dirs:
             print(f"  - {exp_dir}")
         
-        # 收集所有rX.csv文件
+        # Collect all target CSV files
         all_rx_files = []
         for exp_dir in exp_dirs:
             rx_files = self.find_target_files(exp_dir)
@@ -158,7 +158,7 @@ class BatchMerger:
         
         print(f"\nTotal {len(all_rx_files)} target files")
         
-        # 加载并合并所有文件
+        # Load and concat all files
         all_dataframes = []
         
         for exp_dir_name, sim_idx, file_path in all_rx_files:
@@ -176,7 +176,7 @@ class BatchMerger:
             print("❌ Failed to load any data")
             return pd.DataFrame()
         
-        # 合并所有DataFrame
+        # Concat DataFrames
         print(f"\nMerging {len(all_dataframes)} files...")
         merged_df = pd.concat(all_dataframes, ignore_index=True)
         print(f"Merged: {len(merged_df)} rows")
@@ -188,7 +188,7 @@ class BatchMerger:
             print("Error: no data to save")
             return ""
         
-        # 生成输出文件路径
+        # Build output file path
         output_file = self.root_dir / self.config['merged_output']
         
         try:
@@ -200,7 +200,7 @@ class BatchMerger:
             print(f"Error: failed to save {output_file}: {e}")
             return ""
     
-    # 已移除 summary 相关功能
+    # Summary function removed
     
     def run_batch_merge(self) -> bool:
         """Run batch merge; returns whether succeeded"""
@@ -228,11 +228,11 @@ class BatchMerger:
         print("Batch merge done!")
         return True
     
-    # 省略列出方法，避免维护重复逻辑
+    # Skip list methods to avoid duplicate logic
 
 
 def main():
-    """主函数"""
+    """Main"""
     parser = argparse.ArgumentParser(description='Batch merge generated CSV files (config-driven)')
     parser.add_argument('--config', '-c', type=str, default=None, help='Path to config (default: integ_merger_config.json)')
     args = parser.parse_args()

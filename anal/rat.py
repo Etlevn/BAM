@@ -172,8 +172,8 @@ def analyze_llm_experiment(exp_path: Path) -> Dict[str, Any] | None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='RAT 分析脚本（从 rat.ipynb 提取）')
-    parser.add_argument('--config', type=str, default=None, help='配置文件路径（默认 anal/anal_config.json）')
+    parser = argparse.ArgumentParser(description='RAT analysis script (from rat.ipynb)')
+    parser.add_argument('--config', type=str, default=None, help='Path to config (default: anal/anal_config.json)')
     args = parser.parse_args()
 
     try:
