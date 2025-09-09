@@ -2,10 +2,10 @@
 """
 Output Integration Script
 
-整合每个simulation_index下output文件夹中的JSON文件，提取obs、plan、insight等字段，
-并生成统一的CSV文件保存到market文件夹中。
+Parse JSON files under each simulation_index's output/rX/ directory, extract
+obs, plan, insight, and write a unified CSV into the market folder.
 
-用法:
+Usage:
     python output_integ.py [--config CONFIG_FILE] [--simulation_index SIM_ID]
 """
 
@@ -19,53 +19,53 @@ import re
 
 class OutputIntegrator:
     def __init__(self, config_file: str = None):
-        """初始化输出整合器"""
+        """Initialize the output integrator"""
         self.config = self._load_config(config_file)
         self.root_dir = Path(self.config['root_directory'])
         self.exp_dir = self.root_dir / self.config['experiment_directory']
         self.output_filename = self.config['output_filename']
 
     def _load_config(self, config_file: str = None) -> Dict[str, Any]:
-        """加载配置文件"""
+        """Load configuration file"""
         if config_file is None:
             config_file = Path(__file__).parent / 'output_integ_config.json'
         
         config_path = Path(config_file)
         if not config_path.exists():
-            raise FileNotFoundError(f'配置文件不存在: {config_path}')
+            raise FileNotFoundError(f'Config file not found: {config_path}')
         
         with open(config_path, 'r', encoding='utf-8') as f:
             cfg = json.load(f)
         
-        # 必需字段校验
+        # Required fields
         required = ['root_directory', 'experiment_directory', 'output_filename']
         missing = [k for k in required if k not in cfg or not cfg.get(k)]
         if missing:
-            raise ValueError('配置缺少必要字段: ' + ', '.join(missing))
+            raise ValueError('Config missing required fields: ' + ', '.join(missing))
         
         return cfg
 
     def get_llm_type_mapping(self, simulation_index: str) -> Dict[str, str]:
-        """获取LLM类型映射"""
+        """Get LLM type mapping"""
         market_type = self.config.get('market_type')
         
         if market_type == 'sgl':
-            # SGL：所有 LLM 使用同一个名称（sgl_llm_type）
+            # SGL: all LLM share the same name (sgl_llm_type)
             sgl_llm_type = self.config.get('sgl_llm_type')
             if not isinstance(sgl_llm_type, str) or not sgl_llm_type:
-                raise ValueError('sgl 模式需要在配置中提供 sgl_llm_type')
+                raise ValueError('sgl mode requires sgl_llm_type in config')
             return {f'llm_{i:03d}': sgl_llm_type for i in range(1, 21)}
         
         elif market_type == 'br':
-            # BR模式：从battle_royale_config.json读取分配
+            # BR mode: read assignments from battle_royale_config.json
             return self._load_battle_royale_mapping(simulation_index)
         
         else:
-            # 其它情况：没有映射
+            # Fallback: no mapping
             return {}
 
     def _load_battle_royale_mapping(self, simulation_index: str) -> Dict[str, str]:
-        """从battle_royale_config.json加载LLM类型映射"""
+        """Load LLM type mapping from battle_royale_config.json"""
         config_file = self.exp_dir / simulation_index / 'battle_royale_config.json'
         if not config_file.exists():
             return {}
@@ -78,9 +78,9 @@ class OutputIntegrator:
             return {}
 
     def get_formal_simulation_indices(self) -> List[str]:
-        """获取所有正式轮simulation_index"""
+        """Get all formal (20 rounds) simulation_index names"""
         if not self.exp_dir.exists():
-            print(f"实验目录不存在: {self.exp_dir}")
+            print(f"Experiment directory not found: {self.exp_dir}")
             return []
         
         formal_indices = []
@@ -91,20 +91,20 @@ class OutputIntegrator:
         return sorted(formal_indices)
 
     def _is_formal_simulation(self, simulation_index: str) -> bool:
-        """判断是否为正式轮simulation_index（20轮）"""
+        """Return True if this simulation_index is formal (exactly 20 rounds)"""
         output_dir = self.exp_dir / simulation_index / 'output'
         if not output_dir.exists():
             return False
         
-        # 统计output目录下的轮次数量
+        # Count round directories under output
         round_dirs = [d for d in output_dir.iterdir() if d.is_dir() and d.name.startswith('r')]
         round_count = len(round_dirs)
-        
-        # 正式轮应该有20轮
+
+        # Formal requires 20 rounds
         return round_count == 20
 
     def get_rounds_in_simulation(self, simulation_index: str) -> List[int]:
-        """获取simulation_index中的所有轮次"""
+        """List all round numbers contained in this simulation_index"""
         output_dir = self.exp_dir / simulation_index / 'output'
         if not output_dir.exists():
             return []
@@ -113,7 +113,7 @@ class OutputIntegrator:
         for item in output_dir.iterdir():
             if item.is_dir() and item.name.startswith('r'):
                 try:
-                    round_num = int(item.name[1:])  # 去掉'r'前缀
+                    round_num = int(item.name[1:])  # strip leading 'r'
                     rounds.append(round_num)
                 except ValueError:
                     continue
@@ -121,17 +121,16 @@ class OutputIntegrator:
         return sorted(rounds)
 
     def parse_json_file(self, json_file: Path) -> Dict[str, Any]:
-        """解析单个JSON文件，提取obs、plan、insight"""
+        """Parse a single JSON file and extract obs / plan / insight"""
         try:
             with open(json_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
-            # 提取字段
+            # Extract fields
             obs = data.get('observations_and_thoughts', '')
             plan = ''
             insight = ''
-            
-            # 从new_content中提取plan和insight
+
+            # Extract from new_content
             new_content = data.get('new_content', {})
             if isinstance(new_content, dict):
                 plan = new_content.get('PLANS.txt', '')
@@ -143,7 +142,7 @@ class OutputIntegrator:
                 'insight': insight
             }
         except Exception as e:
-            print(f"解析JSON文件失败 {json_file}: {e}")
+            print(f"Failed to parse JSON {json_file}: {e}")
             return {
                 'obs': '',
                 'plan': '',
@@ -151,20 +150,20 @@ class OutputIntegrator:
             }
 
     def integrate_simulation_output(self, simulation_index: str) -> bool:
-        """整合单个simulation_index的output数据"""
-        print(f"正在处理simulation_index: {simulation_index}")
+        """Integrate output data for a single simulation_index"""
+        print(f"Processing simulation_index: {simulation_index}")
         
         # 获取LLM类型映射
         llm_type_mapping = self.get_llm_type_mapping(simulation_index)
         market_type = self.config.get('market_type', 'unknown')
         
-        # 获取所有轮次
+        # Collect rounds
         rounds = self.get_rounds_in_simulation(simulation_index)
         if not rounds:
-            print(f"未找到轮次数据: {simulation_index}")
+            print(f"No round data found: {simulation_index}")
             return False
-        
-        print(f"发现轮次: {rounds}")
+
+        print(f"Rounds found: {rounds}")
         
         # 收集所有数据
         all_data = []
@@ -174,10 +173,9 @@ class OutputIntegrator:
             round_dir = output_dir / f'r{round_num}'
             if not round_dir.exists():
                 continue
-            
-            # 处理该轮次的所有LLM JSON文件
+            # Iterate all LLM JSON files of the round
             for json_file in round_dir.glob('llm_*.json'):
-                # 提取LLM编号
+                # Extract LLM id
                 match = re.match(r'llm_(\d+)_r\d+\.json', json_file.name)
                 if not match:
                     continue
@@ -185,10 +183,10 @@ class OutputIntegrator:
                 llm_id = match.group(1)
                 llm_name = f'llm_{llm_id.zfill(3)}'
                 
-                # 解析JSON文件
+                # Parse JSON
                 parsed_data = self.parse_json_file(json_file)
                 
-                # 添加元数据
+                # Compose row with metadata
                 row_data = {
                     'llm': llm_name,
                     'llm_type': llm_type_mapping.get(llm_name, 'unknown'),
@@ -203,44 +201,44 @@ class OutputIntegrator:
                 all_data.append(row_data)
         
         if not all_data:
-            print(f"未找到任何数据: {simulation_index}")
+            print(f"No data found: {simulation_index}")
             return False
         
-        # 创建DataFrame并保存
+        # Save
         df = pd.DataFrame(all_data)
         
-        # 保存到market文件夹
+        # Save into market folder
         market_dir = self.exp_dir / simulation_index / 'market'
         market_dir.mkdir(exist_ok=True)
         
         output_file = market_dir / self.output_filename
         df.to_csv(output_file, index=False, encoding='utf-8')
         
-        print(f"已保存 {len(all_data)} 条记录到: {output_file}")
+        print(f"Saved {len(all_data)} rows to: {output_file}")
         return True
 
     def integrate_all_outputs(self) -> None:
-        """整合所有simulation_index的output数据"""
+        """Integrate output data for all simulation_index"""
         formal_indices = self.get_formal_simulation_indices()
         
         if not formal_indices:
-            print("未发现正式轮simulation_index")
+            print("No formal simulation_index found")
             return
-        
-        print(f"发现 {len(formal_indices)} 个正式轮simulation_index")
+
+        print(f"Found {len(formal_indices)} formal simulation_index")
         
         success_count = 0
         for simulation_index in formal_indices:
             if self.integrate_simulation_output(simulation_index):
                 success_count += 1
         
-        print(f"成功处理 {success_count}/{len(formal_indices)} 个simulation_index")
+        print(f"Successfully processed {success_count}/{len(formal_indices)} simulation_index")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='整合output文件夹中的JSON数据')
-    parser.add_argument('--config', help='配置文件路径')
-    parser.add_argument('--simulation_index', help='指定单个simulation_index进行处理')
+    parser = argparse.ArgumentParser(description='Integrate JSON data under output folders')
+    parser.add_argument('--config', help='Path to config file')
+    parser.add_argument('--simulation_index', help='Process a single simulation_index only')
     
     args = parser.parse_args()
     
@@ -255,7 +253,7 @@ def main():
             integrator.integrate_all_outputs()
     
     except Exception as e:
-        print(f"错误: {e}")
+        print(f"Error: {e}")
         return 1
     
     return 0

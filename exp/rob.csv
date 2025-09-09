@@ -1,0 +1,4 @@
+Metric,Mean,StdDev,CV,95% CI Lower,95% CI Upper,CI Width / Mean
+MSE,0.34,0.42,1.253,-0.05,0.72,2.317
+Amplitude,0.43,0.53,1.247,-0.07,0.92,2.307
+PV_Variance,43.26,57.88,1.338,-10.27,96.79,2.475
