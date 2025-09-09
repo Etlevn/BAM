@@ -3,7 +3,7 @@ import time
 import config
 import os
 
-NUM_RUNS = 10  # number of full experiments
+NUM_RUNS = 9  # number of full experiments
 
 def run_batch_main():
     print(f"Starting batch of {NUM_RUNS} experiments via `main.py` ...\n")

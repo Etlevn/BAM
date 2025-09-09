@@ -347,15 +347,19 @@ def post_round_json_fix(exp_run_dir, round_num, num_llms):
             
             # Check if fix is needed
             if "raw_response" in data and len(data) == 1:
-                # Use simple fix logic
-                success = fix_single_json_file(json_file)
+                # Use enhanced fix logic
+                success, message = fix_single_json_file(json_file)
                 
                 if success:
-                    results["fixed_files"] += 1
-                    print(f"[utils.py] ✓ Fixed: {llm_id}_r{round_num}.json")
+                    if "no fix needed" in message:
+                        # File was already correct
+                        pass
+                    else:
+                        results["fixed_files"] += 1
+                        print(f"[utils.py] ✓ Fixed: {llm_id}_r{round_num}.json - {message}")
                 else:
                     results["error_files"] += 1
-                    print(f"[utils.py] ✗ Fix failed: {llm_id}_r{round_num}.json")
+                    print(f"[utils.py] ✗ Fix failed: {llm_id}_r{round_num}.json - {message}")
         
         except Exception as e:
             results["error_files"] += 1
@@ -371,32 +375,33 @@ def post_round_json_fix(exp_run_dir, round_num, num_llms):
 
 def fix_single_json_file(file_path):
     """
-    Simplified version for fixing a single JSON file
+    Enhanced version for fixing a single JSON file - integrated from fix_json.py
     """
     try:
         # Read file
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
+        # Check if fix is needed - more strict check like fix_json.py
         if "raw_response" not in data or len(data) != 1:
-            return True  # File format is normal
+            return True, "File format is correct, no fix needed"
         
         # Parse raw_response
         raw_resp = data["raw_response"]
         
         # Skip files with error messages
         if isinstance(raw_resp, str) and raw_resp.startswith("Error:"):
-            return True  # Cannot fix error responses
+            return True, "Cannot fix error responses"
         
         parsed = ast.literal_eval(raw_resp)
         llm_resp = parsed["llm_response"]
         
-        # Use simple fix logic
+        # Use enhanced fix logic
         fixed_json = simple_fix_truncated_response(llm_resp)
         if not fixed_json:
-            return False
+            return False, "Fix failed"
         
-        # Create backup if enabled
+        # Create backup if enabled (respect AUTO_JSON_FIX config)
         if config.AUTO_JSON_FIX["create_backup"]:
             backup_path = file_path.replace('.json', '_backup.json')
             with open(backup_path, 'w', encoding='utf-8') as f:
@@ -407,10 +412,10 @@ def fix_single_json_file(file_path):
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(fixed_json, f, ensure_ascii=False, indent=4)
         
-        return True
+        return True, "Fix successful"
         
-    except Exception:
-        return False
+    except Exception as e:
+        return False, f"Fix failed: {e}"
 
 def simple_fix_truncated_response(json_str):
     """
@@ -526,4 +531,4 @@ def simple_fix_truncated_response(json_str):
         if "price_forecasts" not in result["new_content"]:
             result["new_content"]["price_forecasts"] = []
     
-    return result 
+    return result

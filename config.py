@@ -44,8 +44,8 @@ API_CONFIG = {
 # Model configuration
 MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
-    "model_name": "deepcogito/cogito-v2-preview-deepseek-671b",  # Default model (used when Battle Royale is disabled)
-    "service_name": "together"  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
+    "model_name": "gemini-2.5-flash-lite",  # Default model (used when Battle Royale is disabled)
+    "service_name": "google"  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
 
 # Battle Royale configuration
@@ -54,16 +54,16 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "claude-3-7-sonnet-20250219",
+            "name": "gpt-4o",
             "count": 10,
-            "description": "claude-3-7-sonnet",
-            "service_name": None  
+            "description": "ChatGPT-4o",
+            "service_name": ""
         },
         {
-            "name": "gemini-2.0-flash-001",
-            "count": 20,
-            "description": "gemini-2.0-flash",
-            "service_name": None
+            "name": "gpt-4o-mini",
+            "count": 10,
+            "description": "ChatGPT-4o-mini",
+            "service_name": ""
         }
     ]
 }

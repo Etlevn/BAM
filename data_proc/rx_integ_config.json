@@ -1,0 +1,7 @@
+{
+  "market_type": "br",
+  "root_directory": "/Users/etlevn/Documents/Projects/LLM_TRD",
+  "experiment_directory": "exp",
+  "output_filename": "_rX.csv",
+  "sgl_llm_type": "claude-3-5-sonnet-20240620"
+}
