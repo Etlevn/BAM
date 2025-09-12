@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RX整合脚本（r1..rN → rX.csv 合并）
-读取 experiment_directory 下所有正式轮 simulation_index 的 r1..rN.csv，
-添加元数据列后纵向合并为 rX.csv。
-配置采用单一 JSON（包含 br 与 sgl 分支），可用命令行覆盖。
+RX integration script (r1..rN → rX.csv)
+Read r1..rN.csv under all formal simulation_index in experiment_directory,
+append metadata columns, and concatenate vertically into rX.csv.
+Configuration is read from a single JSON (containing br and sgl branches).
 """
 
 import os
@@ -14,10 +14,10 @@ from pathlib import Path
 import json
 from typing import Dict, List
 
-# 配置仅从JSON读取；不在脚本内提供默认常量
+# Configuration is only read from JSON; no in-script defaults
 
 class DataIntegrator:
-    """RX 数据整合器"""
+    """RX data integrator"""
 
     def __init__(self, config_file: str = None):
         self.config = self._load_config(config_file)
@@ -30,7 +30,7 @@ class DataIntegrator:
                 external = json.load(f)
             market_type = external.get('market_type')
             if market_type not in ('br', 'sgl'):
-                raise ValueError('配置中缺少或非法的 market_type (需为 "br" 或 "sgl")')
+                raise ValueError('Invalid or missing market_type in config (must be "br" or "sgl")')
             merged = {
                 'market_type': market_type,
                 'root_directory': external.get('root_directory'),
@@ -43,23 +43,23 @@ class DataIntegrator:
 
             missing = [k for k in ['root_directory', 'experiment_directory', 'output_filename'] if not merged.get(k)]
             if missing:
-                raise ValueError("配置缺少必要字段: " + ", ".join(missing))
+                raise ValueError("Config missing required fields: " + ", ".join(missing))
             return merged
         else:
             default_cfg = Path(__file__).with_name('rx_integ_config.json')
             if default_cfg.exists():
                 return self._load_config(str(default_cfg))
-            raise ValueError('未提供配置文件，且默认配置文件不存在: rx_integ_config.json')
+            raise ValueError('No config provided and default rx_integ_config.json not found')
     
     def get_available_simulation_indices(self) -> List[str]:
         """
-        获取所有可用的simulation_index
+        Get all available simulation_index
         
         Returns:
-            simulation_index列表
+            List of simulation_index
         """
         if not self.exp_dir.exists():
-            print(f"实验目录不存在: {self.exp_dir}")
+            print(f"Experiment directory does not exist: {self.exp_dir}")
             return []
             
         def is_formal(sim_dir: Path) -> bool:
@@ -75,7 +75,7 @@ class DataIntegrator:
                     except Exception:
                         pass
             rounds = sorted(set(rounds))
-            # 正式轮：从1开始连续且最大轮 >= 20
+            # Formal: rounds are continuous from 1 and max round >= 20
             return rounds and (rounds == list(range(1, rounds[-1] + 1))) and rounds[-1] >= 20
 
         indices: List[str] = []
@@ -88,134 +88,134 @@ class DataIntegrator:
     
     def load_round_data(self, simulation_index: str, round_num: int) -> pd.DataFrame:
         """
-        加载指定轮次的数据
+        Load data for a specified round
         
         Args:
-            simulation_index: 实验索引
-            round_num: 轮次编号
+            simulation_index: simulation index
+            round_num: round number
             
         Returns:
-            数据DataFrame
+            DataFrame of this round
         """
         market_dir = self.exp_dir / simulation_index / 'market'
         csv_file = market_dir / f'r{round_num}.csv'
         
         if not csv_file.exists():
-            print(f"警告: 文件不存在 {csv_file}")
+            print(f"Warning: file not found {csv_file}")
             return pd.DataFrame()
         
         try:
             df = pd.read_csv(csv_file)
             return df
         except Exception as e:
-            print(f"错误: 读取文件失败 {csv_file}: {e}")
+            print(f"Error: failed to read {csv_file}: {e}")
             return pd.DataFrame()
     
     def get_llm_type_mapping(self, simulation_index: str) -> Dict[str, str]:
         """
-        根据market_type获取llm_type_mapping
+        Get llm_type_mapping based on market_type
         
         Args:
-            simulation_index: 实验索引
+            simulation_index: simulation index
             
         Returns:
-            llm_type_mapping字典
+            llm_type_mapping dict
         """
         market_type = self.config['market_type']
         
         if market_type == 'sgl':
-            # SGL：所有 LLM 使用同一个名称（sgl_llm_type）
+            # SGL: all LLM share the same name (sgl_llm_type)
             sgl_llm_type = self.config.get('sgl_llm_type')
             if not isinstance(sgl_llm_type, str) or not sgl_llm_type:
-                raise ValueError('sgl 模式需要在配置中提供 sgl_llm_type')
+                raise ValueError('SGL mode requires sgl_llm_type in config')
             return {f'llm_{i:03d}': sgl_llm_type for i in range(1, 21)}
         
         elif market_type == 'br':
-            # BR模式：从battle_royale_config.json读取分配
+            # BR mode: read assignments from battle_royale_config.json
             return self._load_battle_royale_mapping(simulation_index)
         
         else:
-            # 其它情况：没有映射
+            # Other: no mapping
             return {}
     
     def _load_battle_royale_mapping(self, simulation_index: str) -> Dict[str, str]:
         """
-        从battle_royale_config.json加载LLM分配
+        Load LLM assignments from battle_royale_config.json
         
         Args:
-            simulation_index: 实验索引
+            simulation_index: simulation index
             
         Returns:
-            llm_type_mapping字典
+            llm_type_mapping dict
         """
         config_file = self.exp_dir / simulation_index / 'battle_royale_config.json'
         
         if not config_file.exists():
-            print(f"警告: battle_royale_config.json不存在: {config_file}")
+            print(f"Warning: battle_royale_config.json not found: {config_file}")
             return {}
         
         try:
             with open(config_file, 'r', encoding='utf-8') as f:
                 battle_config = json.load(f)
             
-            # 从assignments中提取映射
+            # Extract mapping from assignments
             assignments = battle_config.get('assignments', {})
             return assignments
             
         except Exception as e:
-            print(f"错误: 读取battle_royale_config.json失败 {config_file}: {e}")
+            print(f"Error: failed to read battle_royale_config.json {config_file}: {e}")
             return {}
     
     def add_metadata_columns(self, df: pd.DataFrame, simulation_index: str, round_num: int) -> pd.DataFrame:
         """
-        为DataFrame添加元数据列
+        Add metadata columns to DataFrame
         
         Args:
-            df: 原始数据DataFrame
-            simulation_index: 实验索引
-            round_num: 轮次编号
+            df: original data DataFrame
+            simulation_index: simulation index
+            round_num: round number
             
         Returns:
-            添加元数据后的DataFrame
+            DataFrame with metadata columns
         """
         if df.empty:
             return df
         
-        # 创建副本避免修改原始数据
+        # Create a copy to avoid mutating original
         df_copy = df.copy()
         
-        # 获取llm_type_mapping
+        # Get llm_type_mapping
         llm_mapping = self.get_llm_type_mapping(simulation_index)
         
-        # 添加llm_type列
+        # Add llm_type column
         df_copy['llm_type'] = df_copy['llm'].map(llm_mapping)
         
-        # 添加market_type列
+        # Add market_type column
         df_copy['market_type'] = self.config['market_type']
         
-        # 添加round列
+        # Add round column
         df_copy['round'] = round_num
         
-        # 添加simulation_index列
+        # Add simulation_index column
         df_copy['simulation_index'] = simulation_index
         
         return df_copy
     
     def integrate_simulation_data(self, simulation_index: str) -> pd.DataFrame:
         """
-        整合指定simulation_index的所有轮次数据
+        Integrate all rounds of a specified simulation_index
         
         Args:
-            simulation_index: 实验索引
+            simulation_index: simulation index
             
         Returns:
-            整合后的DataFrame
+            Integrated DataFrame
         """
-        print(f"开始整合 simulation_index: {simulation_index}")
+        print(f"Start integrating simulation_index: {simulation_index}")
         
         all_data = []
         
-        # 自动探测总轮次：以 market 下 rN.csv 的最大 N 为准
+        # Auto-detect total rounds: use the maximum N of market/rN.csv
         market_dir = self.exp_dir / simulation_index / 'market'
         rounds = []
         for p in market_dir.glob('r*.csv'):
@@ -227,105 +227,105 @@ class DataIntegrator:
                     pass
         rounds = sorted(set(rounds))
         if not rounds:
-            print(f"错误: 未能检测到轮次 r*.csv 于 {market_dir}")
+            print(f"Error: no r*.csv found under {market_dir}")
             return pd.DataFrame()
         total_rounds = rounds[-1]
 
         for round_num in range(1, total_rounds + 1):
-            print(f"  处理轮次 {round_num}...")
+            print(f"  Processing round {round_num}...")
             
-            # 加载轮次数据
+            # Load round data
             round_df = self.load_round_data(simulation_index, round_num)
             
             if not round_df.empty:
-                # 添加元数据列
+                # Add metadata
                 round_df_with_metadata = self.add_metadata_columns(round_df, simulation_index, round_num)
                 all_data.append(round_df_with_metadata)
             else:
-                print(f"    警告: 轮次 {round_num} 数据为空")
+                print(f"    Warning: round {round_num} data is empty")
         
         if not all_data:
-            print(f"错误: 没有找到任何数据 for {simulation_index}")
+            print(f"Error: no data found for {simulation_index}")
             return pd.DataFrame()
         
-        # 合并所有数据
+        # Concatenate all data
         integrated_df = pd.concat(all_data, ignore_index=True)
         
-        print(f"整合完成: {len(integrated_df)} 行数据")
+        print(f"Integrated: {len(integrated_df)} rows")
         return integrated_df
     
     def save_integrated_data(self, df: pd.DataFrame, simulation_index: str) -> str:
         """
-        保存整合后的数据
+        Save the integrated data
         
         Args:
-            df: 整合后的DataFrame
-            simulation_index: 实验索引
+            df: integrated DataFrame
+            simulation_index: simulation index
             
         Returns:
-            保存的文件路径
+            Saved file path
         """
         if df.empty:
-            print("错误: 没有数据需要保存")
+            print("Error: no data to save")
             return ""
         
-        # 创建输出目录
+        # Create output directory
         market_dir = self.exp_dir / simulation_index / 'market'
         market_dir.mkdir(parents=True, exist_ok=True)
         
-        # 生成输出文件路径
+        # Build output file path
         output_file = market_dir / self.config['output_filename']
         
         try:
-            # 保存CSV文件
+            # Save CSV
             df.to_csv(output_file, index=False, encoding='utf-8')
-            print(f"数据已保存到: {output_file}")
+            print(f"Saved to: {output_file}")
             return str(output_file)
         except Exception as e:
-            print(f"错误: 保存文件失败 {output_file}: {e}")
+            print(f"Error: failed to save {output_file}: {e}")
             return ""
     
-    # 已移除 summary 功能
+    # Summary feature removed
     
     def run_integration(self, simulation_index: str = None) -> bool:
         """
-        运行数据整合流程
+        Run the data integration pipeline
         
         Args:
-            simulation_index: 指定的simulation_index，如果为None则使用配置中的默认值
+            simulation_index: specified simulation_index (external scheduler provides it)
             
         Returns:
-            是否成功
+            success boolean
         """
-        # 若未指定则内部不使用 target_simulation_index，外部批处理统一调度
+        # No default target inside; external batch loop calls this per simulation_index
         
-        print(f"开始数据整合流程...")
-        print(f"目标simulation_index: {simulation_index}")
-        print(f"市场类型: {self.config['market_type']}")
+        print(f"Start integration...")
+        print(f"Target simulation_index: {simulation_index}")
+        print(f"Market type: {self.config['market_type']}")
         print("-" * 50)
         
-        # 检查simulation_index是否存在
+        # Check simulation_index directory exists
         sim_dir = self.exp_dir / simulation_index
         if not sim_dir.exists():
-            print(f"错误: simulation_index目录不存在: {sim_dir}")
+            print(f"Error: simulation_index directory not found: {sim_dir}")
             return False
         
-        # 整合数据
+        # Integrate data
         integrated_df = self.integrate_simulation_data(simulation_index)
         
         if integrated_df.empty:
-            print("错误: 没有成功整合任何数据")
+            print("Error: failed to integrate any data")
             return False
         
-        # 保存整合数据（不再依赖配置开关，始终保存）
+        # Always save integrated data
         output_file = self.save_integrated_data(integrated_df, simulation_index)
         if not output_file:
             return False
         
-        # 不生成汇总报告
+        # Do not generate summary report
         
         print("-" * 50)
-        print("数据整合完成!")
+        print("Integration done!")
         return True
     
     # 取消列出功能（简化）
@@ -333,11 +333,11 @@ class DataIntegrator:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='RX整合脚本（r1..rN → rX.csv）')
-    parser.add_argument('--config', '-c', type=str, default=None, help='配置文件路径（单一 JSON，包含 br 与 sgl 分支）')
+    parser = argparse.ArgumentParser(description='RX integration script (r1..rN → rX.csv)')
+    parser.add_argument('--config', '-c', type=str, default=None, help='Path to config JSON (single file containing br and sgl modes)')
     args = parser.parse_args()
 
-    # 默认加载同目录 rx_integ_config.json（若未提供 --config）
+    # Default to rx_integ_config.json in the same directory if --config not provided
     if not args.config:
         default_cfg = Path(__file__).with_name('rx_integ_config.json')
         if default_cfg.exists():
@@ -349,13 +349,13 @@ def main():
 
     sims = integrator.get_available_simulation_indices()
     if not sims:
-        print('未发现正式轮 simulation_index')
+        print('No formal simulation_index found')
         return
 
     for sim in sims:
         success = integrator.run_integration(sim)
         if success:
-            print(f'已处理: {sim}')
+            print(f'Processed: {sim}')
 
 
 if __name__ == "__main__":

@@ -1,5 +1,12 @@
 {
   "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR",
-  "expected_filename": "_output.csv",
-  "merged_output": "br_output.csv"
+  "run_rx": true,
+  "rx_expected_filename": "_rX.csv",
+  "rx_merged_output": "br_rx.csv",
+  "run_market": true,
+  "market_expected_filename": "_mkt.csv",
+  "market_merged_output": "br_mkt.csv",
+  "run_output": true,
+  "output_expected_filename": "_output.csv",
+  "output_merged_output": "br_output.csv"
 }

@@ -1,0 +1,14 @@
+{
+  "market_type": "br",
+  "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR",
+  "experiment_directory": "gpt-4o VS qwen3",
+  "sgl_llm_type": "",
+  "run_market": true,
+  "run_rx": true,
+  "run_output": true,
+  "market_output_filename": "_mkt.csv",
+  "rx_output_filename": "_rX.csv",
+  "output_output_filename": "_output.csv"
+}
+
+

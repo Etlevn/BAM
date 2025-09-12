@@ -37,12 +37,46 @@ class BatchMerger:
             with open(default_cfg, 'r', encoding='utf-8') as f:
                 cfg = json.load(f)
 
-        # Required fields (market_type not needed)
-        required = ['root_directory', 'expected_filename', 'merged_output']
-        missing = [k for k in required if k not in cfg or not cfg.get(k)]
-        if missing:
-            raise ValueError('Config missing required fields: ' + ', '.join(missing))
-        # use expected_filename directly
+        # Determine mode dynamically:
+        # 1) If any run_* switches present (True), construct batch_items from them
+        # 2) Else if batch_items is provided, use it
+        # 3) Else fall back to single-file mode (expected_filename + merged_output)
+        constructed: List[Dict[str, str]] = []
+        if cfg.get('run_rx') or cfg.get('run_market') or cfg.get('run_mkt') or cfg.get('run_output'):
+            if cfg.get('run_rx'):
+                constructed.append({
+                    'expected_filename': cfg.get('rx_expected_filename', '_rX.csv'),
+                    'merged_output': cfg.get('rx_merged_output', 'merged_rx.csv'),
+                })
+            if cfg.get('run_market') or cfg.get('run_mkt'):
+                constructed.append({
+                    'expected_filename': cfg.get('market_expected_filename', '_mkt.csv'),
+                    'merged_output': cfg.get('market_merged_output', 'merged_mkt.csv'),
+                })
+            if cfg.get('run_output'):
+                constructed.append({
+                    'expected_filename': cfg.get('output_expected_filename', '_output.csv'),
+                    'merged_output': cfg.get('output_merged_output', 'merged_output.csv'),
+                })
+            cfg['batch_items'] = constructed
+        elif isinstance(cfg.get('batch_items'), list) and cfg['batch_items']:
+            # Validate provided batch_items
+            pass
+        else:
+            # Single-file mode requires expected_filename and merged_output
+            required = ['root_directory', 'expected_filename', 'merged_output']
+            missing = [k for k in required if k not in cfg or not cfg.get(k)]
+            if missing:
+                raise ValueError('Config missing required fields: ' + ', '.join(missing))
+
+        # Validate batch_items if present
+        if isinstance(cfg.get('batch_items'), list):
+            for i, item in enumerate(cfg['batch_items']):
+                if not isinstance(item, dict):
+                    raise ValueError(f'batch_items[{i}] must be an object')
+                for key in ['expected_filename', 'merged_output']:
+                    if not item.get(key):
+                        raise ValueError(f'batch_items[{i}] missing required field: {key}')
         return cfg
     
     def discover_experiment_directories(self) -> List[str]:
@@ -238,8 +272,31 @@ def main():
     args = parser.parse_args()
 
     merger = BatchMerger(args.config)
-    success = merger.run_batch_merge()
-    print("\n🎉 Batch merge completed successfully!" if success else "\n❌ Batch merge failed!")
+
+    # If batch_items present (or constructed via switches), iterate; otherwise run once
+    if isinstance(merger.config.get('batch_items'), list) and merger.config['batch_items']:
+        all_ok = True
+        print("Multiple merges enabled. Running configured merges...")
+        # Preserve original expected/output for safety
+        original_expected = merger.config.get('expected_filename')
+        original_output = merger.config.get('merged_output')
+        for item in merger.config['batch_items']:
+            # Temporarily set expected_filename and merged_output
+            merger.config['expected_filename'] = item['expected_filename']
+            merger.config['merged_output'] = item['merged_output']
+            print("-" * 60)
+            print(f"Now merging for: expected={item['expected_filename']} -> output={item['merged_output']}")
+            ok = merger.run_batch_merge()
+            all_ok = all_ok and ok
+        # Restore
+        if original_expected:
+            merger.config['expected_filename'] = original_expected
+        if original_output:
+            merger.config['merged_output'] = original_output
+        print("\n🎉 Batch merges completed" if all_ok else "\n❌ Some batch merges failed")
+    else:
+        success = merger.run_batch_merge()
+        print("\n🎉 Batch merge completed successfully!" if success else "\n❌ Batch merge failed!")
 
 
 if __name__ == "__main__":

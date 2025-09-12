@@ -50,19 +50,19 @@ MODEL_CONFIG = {
 
 # Battle Royale configuration
 BATTLE_ROYALE_CONFIG = {
-    "enabled": False,  # Enable/disable Battle Royale mode
+    "enabled": True,  # Enable/disable Battle Royale mode
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "gpt-4o",
+            "name": "gemini-2.5-flash-lite",
             "count": 10,
-            "description": "ChatGPT-4o",
-            "service_name": ""
+            "description": "Gemini 2.5 Pro",
+            "service_name": "google"
         },
         {
-            "name": "gpt-4o-mini",
+            "name": "claude-3-7-sonnet-20250219",
             "count": 10,
-            "description": "ChatGPT-4o-mini",
+            "description": "Claude 3.7 Sonnet",
             "service_name": ""
         }
     ]

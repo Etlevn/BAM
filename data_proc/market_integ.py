@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-市场文本整合脚本
-读取 experiment_directory 下所有正式轮 simulation_index 的 r20 市场文本
-并整合为结构化 CSV。
+Market text integration script
+Reads r20 market text files under all formal simulation_index directories in the
+experiment_directory and integrates them into a structured CSV.
 """
 
 import os
@@ -15,11 +15,11 @@ from typing import Dict, List, Tuple, Optional
 import pandas as pd
 
 
-# 配置仅从JSON读取；不在脚本内提供默认常量
+# Configuration is only read from JSON; no in-script defaults
 
 
 class MarketTxtIntegrator:
-    """将 r20 的 llm_xxx_r20_market.txt 转为结构化 CSV 的整合器。"""
+    """Integrator that converts r20 llm_xxx_r20_market.txt into structured CSV."""
 
     def __init__(self, config_file: Optional[str] = None):
         self.config = self._load_config(config_file)
@@ -28,7 +28,7 @@ class MarketTxtIntegrator:
 
     def _load_config(self, config_file: Optional[str]) -> Dict:
         """
-        支持单一 JSON 中包含 br 与 sgl 两个分支的配置：
+        Support a single JSON that contains config for both br and sgl modes:
         {
           "market_type": "br",
           "br": { "root_directory": "...", "experiment_directory": "...", "output_filename": "..." },
@@ -40,7 +40,7 @@ class MarketTxtIntegrator:
                 external = json.load(f)
             market_type = external.get('market_type')
             if market_type not in ('br', 'sgl'):
-                raise ValueError('配置中缺少或非法的 market_type (需为 "br" 或 "sgl")')
+                raise ValueError('Invalid or missing market_type in config (must be "br" or "sgl")')
             merged = {
                 'market_type': market_type,
                 'root_directory': external.get('root_directory'),
@@ -52,17 +52,18 @@ class MarketTxtIntegrator:
                 merged['sgl_llm_type'] = external.get('sgl_llm_type')
             missing = [k for k in ['root_directory', 'experiment_directory', 'output_filename'] if not merged.get(k)]
             if missing:
-                raise ValueError("配置缺少必要字段: " + ", ".join(missing))
+                raise ValueError("Config missing required fields: " + ", ".join(missing))
             return merged
         else:
-            # 未提供配置文件则尝试同目录默认文件
+            # If not provided, try default file in the same directory
             default_cfg = Path(__file__).with_name('market_integ_config.json')
             if default_cfg.exists():
                 return self._load_config(str(default_cfg))
-            raise ValueError('未提供配置文件，且默认配置文件不存在: market_integ_config.json')
+            raise ValueError('No config provided and default market_integ_config.json not found')
 
     # ---------------------------------------------------------------------
-    # 发现 simulation_index（以 20 开头的目录）并筛选正式轮（market 下 r1..r20）
+    # Discover simulation_index (directories starting with '20') and filter
+    # formal runs (market contains r1..rN, continuous from 1, max round >= 20)
     # ---------------------------------------------------------------------
     def discover_formal_simulation_indices(self) -> List[str]:
         if not self.exp_dir.exists():
@@ -75,7 +76,7 @@ class MarketTxtIntegrator:
             market_dir = item / 'market'
             if not market_dir.exists():
                 continue
-            # 统计严格形如 r{数字}.csv 的文件，例如 r1.csv ... rN.csv
+            # Count strictly matched r{number}.csv files, e.g., r1.csv ... rN.csv
             rounds = []
             for p in market_dir.glob('r*.csv'):
                 m = re.fullmatch(r"r(\d+)\.csv", p.name)
@@ -85,26 +86,26 @@ class MarketTxtIntegrator:
                     except Exception:
                         pass
             rounds = sorted(set(rounds))
-            # 认为“正式轮”：从1开始连续，且最大轮 >= 20
+            # Formal run: rounds are continuous from 1 and max round >= 20
             if rounds and rounds == list(range(1, rounds[-1] + 1)) and rounds[-1] >= 20:
                 indices.append(item.name)
 
         return sorted(indices)
 
     # ---------------------------------------------------------------------
-    # 读取 battle_royale_config.json 获取 llm->type 映射（BR 模式）
-    # 或从配置获取（SGL 模式）
+    # Load llm->type mapping from battle_royale_config.json (BR mode)
+    # or from config (SGL mode)
     # ---------------------------------------------------------------------
     def get_llm_type_mapping(self, simulation_index: str) -> Dict[str, str]:
         market_type = self.config.get('market_type', 'br')
         if market_type == 'sgl':
-            # SGL：所有 LLM 使用同一个名称（sgl_llm_type）
+            # SGL: all LLM share the same name (sgl_llm_type)
             sgl_llm_type = self.config.get('sgl_llm_type')
             if not isinstance(sgl_llm_type, str) or not sgl_llm_type:
-                raise ValueError('sgl 模式需要在配置中提供 sgl_llm_type')
+                raise ValueError('SGL mode requires sgl_llm_type in config')
             return {f'llm_{i:03d}': sgl_llm_type for i in range(1, 21)}
 
-        # BR：从 battle_royale_config.json 读取 assignments
+        # BR: read assignments from battle_royale_config.json
         config_file = self.exp_dir / simulation_index / 'battle_royale_config.json'
         if not config_file.exists():
             return {}
@@ -116,18 +117,18 @@ class MarketTxtIntegrator:
             return {}
 
     # ---------------------------------------------------------------------
-    # 解析单个 market.txt 文本为结构化字典
+    # Parse a single market.txt into structured dicts
     # ---------------------------------------------------------------------
     MARKET_BLOCK_HEADER = re.compile(r'^Round\s+(\d+):\s*$')
 
     def parse_market_txt(self, text: str) -> List[Dict]:
         """
-        解析整个 market.txt 文件，返回每个 Round 的结构化记录。
+        Parse the entire market.txt file and return structured records per Round.
 
-        返回列表的元素包含：
+        Each list element contains:
         - round: int
         - mkt_prc, mkt_vol, stk_num, stk_val, cash, div, int: float
-        - forecasts: List[Tuple[int, float]] 最多 4 组（若不足填 None）
+        - forecasts: List[Tuple[int, float]] up to 4 pairs (pad with None if fewer)
         """
         lines = text.splitlines()
 
@@ -155,7 +156,7 @@ class MarketTxtIntegrator:
 
         records: List[Dict] = []
 
-        # 提取字段
+        # Extract fields
         def extract_float(pattern: str, block_text: str) -> Optional[float]:
             mm = re.search(pattern, block_text, flags=re.IGNORECASE)
             if not mm:
@@ -177,7 +178,7 @@ class MarketTxtIntegrator:
         for rnd, blk_lines in blocks:
             blk = "\n".join(blk_lines)
 
-            # Market + Portfolio Data 段：不同文件中字段命名有小差异，这里做鲁棒匹配
+            # Market + Portfolio Data: field names vary slightly, use robust matching
             mkt_prc = extract_float(r"Market\s+price:\s*([\d\.]+)", blk)
             mkt_vol = extract_int(r"Market\s+volume:\s*([\d\.]+)", blk)
             stk_num = extract_int(r"#\s*of\s*shares\s*owned:\s*([-\d\.]+)", blk)
@@ -186,7 +187,7 @@ class MarketTxtIntegrator:
             div     = extract_float(r"Dividend\s+earned:\s*([-\d\.]+)", blk)
             intr    = extract_float(r"Interest\s+earned:\s*([-\d\.]+)", blk)
 
-            # Forecasts 段：匹配行 "- Round X price forecast: Y"
+            # Forecasts: match lines "- Round X price forecast: Y"
             fcst_pairs: List[Tuple[Optional[int], Optional[float]]] = []
             for line in blk.splitlines():
                 line_stripped = line.strip()
@@ -202,7 +203,7 @@ class MarketTxtIntegrator:
                         p_val = None
                     fcst_pairs.append((r_val, p_val))
 
-            # 仅保留前 4 组，若不足 4 组用 None 填充
+            # Keep first 4 pairs; pad with None if fewer
             fcst_pairs = fcst_pairs[:4]
             while len(fcst_pairs) < 4:
                 fcst_pairs.append((None, None))
@@ -229,10 +230,11 @@ class MarketTxtIntegrator:
         return records
 
     # ---------------------------------------------------------------------
-    # 处理单个 simulation_index：读取 r20 下所有 llm_*_r20_market.txt 并整合
+    # Process a single simulation_index: read all llm_*_r{target}__market.txt under r{target}
+    # and integrate
     # ---------------------------------------------------------------------
     def integrate_single_simulation(self, simulation_index: str) -> pd.DataFrame:
-        # 自动检测最大轮次：扫描 input 下的 r{N} 目录，取最大 N
+        # Auto-detect max round by scanning input/r{N} directories and taking max N
         input_root = self.exp_dir / simulation_index / 'input'
         max_round = 0
         if input_root.exists():
@@ -251,7 +253,7 @@ class MarketTxtIntegrator:
         if not input_dir.exists():
             return pd.DataFrame()
 
-        # 读取 LLM 类型映射
+        # Read LLM type mapping
         llm_type_map = self.get_llm_type_mapping(simulation_index)
         market_type = self.config.get('market_type', 'br')
 
@@ -267,7 +269,7 @@ class MarketTxtIntegrator:
 
             per_round = self.parse_market_txt(text)
 
-            # 展开所有历史轮（不含 Round 0），上限为 target_round
+            # Expand all historical rounds (exclude Round 0), up to target_round
             for rr in per_round:
                 rnum = rr.get('round')
                 if not isinstance(rnum, int):
@@ -303,7 +305,7 @@ class MarketTxtIntegrator:
         if not records:
             return pd.DataFrame()
 
-        # 按用户指定列顺序构建 DataFrame
+        # Build DataFrame with specified column order
         columns = [
             'llm',
             'mkt_prc', 'mkt_vol', 'stk_num', 'stk_val', 'cash', 'div', 'int',
@@ -316,35 +318,35 @@ class MarketTxtIntegrator:
         return df
 
     # ---------------------------------------------------------------------
-    # 扫描所有正式轮 simulation_index 并输出 CSV
+    # Scan all formal simulation_index and write CSV
     # ---------------------------------------------------------------------
     def run(self) -> None:
         sims = self.discover_formal_simulation_indices()
         if not sims:
-            print('未发现正式轮 simulation_index')
+            print('No formal simulation_index found')
             return
 
         for sim in sims:
             df = self.integrate_single_simulation(sim)
             if df.empty:
-                print(f'跳过 {sim}: r20 市场文本未能整合')
+                print(f'Skip {sim}: failed to integrate r20 market texts')
                 continue
 
             out_file = self.exp_dir / sim / 'market' / self.config['output_filename']
             out_file.parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(out_file, index=False, encoding='utf-8')
-            print(f'已保存: {out_file}')
+            print(f'Saved: {out_file}')
 
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description='整合 r20 市场文本为 CSV')
-    parser.add_argument('--config', '-c', type=str, default=None, help='配置文件路径（单一 JSON，包含 br 与 sgl 分支）')
-    # 所有配置仅从JSON中读取，不提供覆盖参数
+    parser = argparse.ArgumentParser(description='Integrate r20 market texts into CSV')
+    parser.add_argument('--config', '-c', type=str, default=None, help='Path to config JSON (single file containing br and sgl modes)')
+    # All configuration is sourced from JSON; no CLI overrides
     args = parser.parse_args()
 
-    # 若未提供 --config，则默认使用脚本同目录下的 market_txt_integration_config.json
-    # 从而支持直接运行：python market_txt_integration.py
+    # If --config not provided, default to market_integ_config.json in the same directory
+    # to support direct run: python market_integ.py
     if not args.config:
         from pathlib import Path as _P
         default_cfg = _P(__file__).with_name('market_integ_config.json')
