@@ -32,8 +32,8 @@ def get_service_name_for_model(model_name):
     Get service name for a model from configuration.
     Uses different logic for Battle Royale mode vs single model mode.
     """
-    # Check if Battle Royale is enabled
-    if config.BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in config.BATTLE_ROYALE_CONFIG:
+    # Check if Battle Royale mode is enabled
+    if config.EXPERIMENT_MODE == "br" and "custom_models" in config.BATTLE_ROYALE_CONFIG:
         # Battle Royale mode: only look in custom_models
         for model_config in config.BATTLE_ROYALE_CONFIG["custom_models"]:
             if model_config["name"] == model_name:
@@ -41,8 +41,8 @@ def get_service_name_for_model(model_name):
         # If model not found in custom_models, return None (no service needed)
         return None
     else:
-        # Single model mode: use MODEL_CONFIG
-        return config.MODEL_CONFIG.get("service_name")
+        # Single model mode: use SINGLE_MODEL_CONFIG
+        return config.SINGLE_MODEL_CONFIG.get("service_name")
 
 def chat_with_parrot(prompt, model_name="gpt-4o"):
     """

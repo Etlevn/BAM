@@ -50,11 +50,8 @@ class OutputIntegrator:
         market_type = self.config.get('market_type')
         
         if market_type == 'sgl':
-            # SGL: all LLM share the same name (sgl_llm_type)
-            sgl_llm_type = self.config.get('sgl_llm_type')
-            if not isinstance(sgl_llm_type, str) or not sgl_llm_type:
-                raise ValueError('sgl mode requires sgl_llm_type in config')
-            return {f'llm_{i:03d}': sgl_llm_type for i in range(1, 21)}
+            # SGL mode: read model name from sgl_config.json
+            return self._load_sgl_mapping(simulation_index)
         
         elif market_type == 'br':
             # BR mode: read assignments from battle_royale_config.json
@@ -64,9 +61,44 @@ class OutputIntegrator:
             # Fallback: no mapping
             return {}
 
+    def _load_sgl_mapping(self, simulation_index: str) -> Dict[str, str]:
+        """
+        Load LLM model name from sgl_config.json, fallback to config if not found
+        
+        Args:
+            simulation_index: simulation index
+            
+        Returns:
+            llm_type_mapping dict
+        """
+        config_file = self.exp_dir / simulation_index / 'sgl_config.json'
+        
+        if config_file.exists():
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    sgl_config = json.load(f)
+                
+                # Extract model name and create mapping for all LLMs
+                model_name = sgl_config.get('model_name')
+                if model_name:
+                    return {f'llm_{i:03d}': model_name for i in range(1, 21)}
+                else:
+                    print(f"Warning: model_name not found in sgl_config.json: {config_file}")
+            except Exception as e:
+                print(f"Error: failed to read sgl_config.json {config_file}: {e}")
+        
+        # Fallback to config
+        sgl_llm_type = self.config.get('sgl_llm_type')
+        if isinstance(sgl_llm_type, str) and sgl_llm_type:
+            print(f"Using fallback sgl_llm_type from config: {sgl_llm_type}")
+            return {f'llm_{i:03d}': sgl_llm_type for i in range(1, 21)}
+        else:
+            print(f"Warning: sgl_config.json not found and no sgl_llm_type in config")
+            return {}
+
     def _load_battle_royale_mapping(self, simulation_index: str) -> Dict[str, str]:
-        """Load LLM type mapping from battle_royale_config.json"""
-        config_file = self.exp_dir / simulation_index / 'battle_royale_config.json'
+        """Load LLM type mapping from br_config.json"""
+        config_file = self.exp_dir / simulation_index / 'br_config.json'
         if not config_file.exists():
             return {}
         

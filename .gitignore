@@ -51,6 +51,7 @@ init/prac/
 init/r0/
 .env
 *.log
+ep_html/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/

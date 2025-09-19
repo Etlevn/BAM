@@ -3,6 +3,39 @@ Configuration file for LLM Trading Analysis project.
 Centralizes all path configurations and experiment settings.
 """
 
+# ============================================================
+
+# Experiment mode configuration
+EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model mode
+
+# Single model configuration
+SINGLE_MODEL_CONFIG = {
+    "num_llms": 20,  # Total number of LLM agents
+    "model_name": "gpt-5",  # Default model (used in single model mode)
+    "service_name": "openai"  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
+}
+
+# Battle Royale configuration
+BATTLE_ROYALE_CONFIG = {
+    "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
+    "custom_models": [
+        {
+            "name": "gemini-2.5-flash-lite",
+            "count": 10,
+            "description": "Gemini 2.5 Pro",
+            "service_name": "google"
+        },
+        {
+            "name": "claude-3-7-sonnet-20250219",
+            "count": 10,
+            "description": "Claude 3.7 Sonnet",
+            "service_name": ""
+        }
+    ]
+}
+
+# ============================================================
+
 import os
 from dotenv import load_dotenv
 
@@ -41,45 +74,20 @@ API_CONFIG = {
     "expected_parrot_api_key": os.getenv("EXPECTED_PARROT_API_KEY", "")  # Load from .env file
 }
 
-# Model configuration
-MODEL_CONFIG = {
-    "num_llms": 20,  # Total number of LLM agents
-    "model_name": "gemini-2.5-flash-lite",  # Default model (used when Battle Royale is disabled)
-    "service_name": "google"  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
-}
-
-# Battle Royale configuration
-BATTLE_ROYALE_CONFIG = {
-    "enabled": True,  # Enable/disable Battle Royale mode
-    "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
-    "custom_models": [
-        {
-            "name": "gemini-2.5-flash-lite",
-            "count": 10,
-            "description": "Gemini 2.5 Pro",
-            "service_name": "google"
-        },
-        {
-            "name": "claude-3-7-sonnet-20250219",
-            "count": 10,
-            "description": "Claude 3.7 Sonnet",
-            "service_name": ""
-        }
-    ]
-}
-
 def get_llm_count():
     """
     Get the correct number of LLMs based on current mode.
-    Returns the sum of custom_models in Battle Royale mode, or MODEL_CONFIG['num_llms'] in single model mode.
+    Returns the sum of custom_models in Battle Royale mode, or SINGLE_MODEL_CONFIG['num_llms'] in single model mode.
     """
-    if BATTLE_ROYALE_CONFIG["enabled"] and "custom_models" in BATTLE_ROYALE_CONFIG:
+    if EXPERIMENT_MODE == "br" and "custom_models" in BATTLE_ROYALE_CONFIG:
         total_configured = sum(model["count"] for model in BATTLE_ROYALE_CONFIG["custom_models"])
         print(f"[config.py] Battle Royale mode enabled: using {total_configured} total agents from custom_models")
         return total_configured
+    elif EXPERIMENT_MODE == "sgl":
+        print(f"[config.py] Single model mode: using {SINGLE_MODEL_CONFIG['num_llms']} agents")
+        return SINGLE_MODEL_CONFIG["num_llms"]
     else:
-        print(f"[config.py] Single model mode: using {MODEL_CONFIG['num_llms']} agents")
-        return MODEL_CONFIG["num_llms"]
+        raise ValueError(f"Invalid EXPERIMENT_MODE: {EXPERIMENT_MODE}. Must be 'br' or 'sgl'")
 
 # === Debug Configuration ===
 DEBUG_CONFIG = {
