@@ -12,7 +12,8 @@ EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model m
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
     "model_name": "gpt-5",  # Default model (used in single model mode)
-    "service_name": "openai"  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
+    "description": "",  # Optional human-readable description
+    "service_name": "openai",  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
 
 # Battle Royale configuration

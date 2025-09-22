@@ -64,8 +64,9 @@ def run_experiment(mode="main", model_name=None, battle_manager=None):
         # Save Single model configuration
         sgl_config = {
             "model_name": model_name,
-            "service_name": config.SINGLE_MODEL_CONFIG.get("service_name", ""),
             "num_llms": NUM_LLMs,
+            "description": config.SINGLE_MODEL_CONFIG.get("description", ""),
+            "service_name": config.SINGLE_MODEL_CONFIG.get("service_name", ""),
             "mode": "single"
         }
         sgl_config_file = os.path.join(exp_run_dir, "sgl_config.json")
@@ -89,8 +90,13 @@ def run_experiment(mode="main", model_name=None, battle_manager=None):
 
         # Step 3.5: Post-round JSON check and fix (before processing)
         if config.AUTO_JSON_FIX["enabled"]:
-            import utils
-            fix_results = utils.post_round_json_fix(exp_run_dir, round_num, NUM_LLMs)
+            import json_fix
+            fix_results = json_fix.post_round_json_fix(
+                exp_run_dir,
+                round_num,
+                NUM_LLMs,
+                create_backup=config.AUTO_JSON_FIX.get("create_backup", True)
+            )
             if fix_results.get("fixed_files", 0) > 0:
                 print(f"[main.py] Fixed {fix_results['fixed_files']} JSON files in round {round_num}")
 
