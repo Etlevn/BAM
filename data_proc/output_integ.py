@@ -88,14 +88,9 @@ class OutputIntegrator:
             except Exception as e:
                 print(f"Error: failed to read sgl_config.json {config_file}: {e}")
         
-        # Fallback to config
-        sgl_llm_type = self.config.get('sgl_llm_type')
-        if isinstance(sgl_llm_type, str) and sgl_llm_type:
-            print(f"Using fallback sgl_llm_type from config: {sgl_llm_type}")
-            return {f'llm_{i:03d}': sgl_llm_type for i in range(1, 21)}
-        else:
-            print(f"Warning: sgl_config.json not found and no sgl_llm_type in config")
-            return {}
+        # No fallback: require per-experiment sgl_config.json
+        print(f"Warning: sgl_config.json not found; no fallback used. Please add sgl_config.json under {self.exp_dir / simulation_index}")
+        return {}
 
     def _load_battle_royale_mapping(self, simulation_index: str) -> Dict[str, str]:
         """Load LLM type mapping from br_config.json"""

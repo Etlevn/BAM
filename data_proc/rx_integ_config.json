@@ -2,6 +2,5 @@
   "market_type": "br",
   "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR",
   "experiment_directory": "",
-  "output_filename": "_rX.csv",
-  "sgl_llm_type": ""
+  "output_filename": "_rX.csv"
 } 

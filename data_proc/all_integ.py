@@ -74,9 +74,7 @@ def build_sub_config(base: Dict[str, Any], output_filename_key: str) -> Dict[str
         'experiment_directory': base.get('experiment_directory'),
         'output_filename': base.get(output_filename_key),
     }
-    # Include sgl_llm_type as fallback for when sgl_config.json is not available
-    if base.get('market_type') == 'sgl':
-        sub['sgl_llm_type'] = base.get('sgl_llm_type')
+    # Do not inject sgl_llm_type here; downstream modules read from per-experiment sgl_config.json
     return sub
 
 

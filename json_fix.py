@@ -11,7 +11,7 @@ import config
 #   GLOBAL_ROOT_BASE_DIR = "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR"
 #   GLOBAL_EXPERIMENT_DIR_NAME = "gpt-4o VS gemini-2.5"
 # If GLOBAL_EXPERIMENT_DIR_NAME is empty, scanning will traverse all experiments under GLOBAL_ROOT_BASE_DIR.
-GLOBAL_ROOT_BASE_DIR = "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR"
+GLOBAL_ROOT_BASE_DIR = "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 2_EP"
 GLOBAL_EXPERIMENT_DIR_NAME = ""
 
 # ==============================
