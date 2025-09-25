@@ -48,8 +48,8 @@ def load_config(config_file: str | None) -> Dict[str, Any]:
     with open(cfg_path, 'r', encoding='utf-8') as f:
         cfg = json.load(f)
 
-    # Required common fields
-    required = ['market_type', 'root_directory', 'experiment_directory']
+    # Required common fields (experiment_directory optional for auto mode)
+    required = ['market_type', 'root_directory']
     missing = [k for k in required if k not in cfg or not cfg.get(k)]
     if missing:
         raise ValueError('Config missing required fields: ' + ', '.join(missing))
@@ -142,30 +142,80 @@ def main() -> int:
     print('All Integrations Runner')
     print('=' * 60)
     print(f"Root: {cfg['root_directory']}")
-    print(f"Experiment dir: {cfg['experiment_directory']}")
+    exp_dir_cfg = cfg.get('experiment_directory', '')
+    print(f"Experiment dir: {exp_dir_cfg if exp_dir_cfg else '[AUTO]'}")
     print(f"Market type: {cfg['market_type']}")
     print('-' * 60)
 
-    if cfg.get('run_market'):
-        print('[1/3] Running market_integ...')
-        run_market(cfg)
-        print('-' * 60)
-    else:
-        print('[1/3] market_integ skipped by config')
+    def should_skip(name: str) -> bool:
+        return name.startswith('_') or name.startswith('.')
 
-    if cfg.get('run_rx'):
-        print('[2/3] Running rx_integ...')
-        run_rx(cfg)
-        print('-' * 60)
-    else:
-        print('[2/3] rx_integ skipped by config')
+    # If a single experiment_directory is provided, run once as before
+    if cfg.get('experiment_directory'):
+        if cfg.get('run_market'):
+            print('[1/3] Running market_integ...')
+            run_market(cfg)
+            print('-' * 60)
+        else:
+            print('[1/3] market_integ skipped by config')
 
-    if cfg.get('run_output'):
-        print('[3/3] Running output_integ...')
-        run_output(cfg)
-        print('-' * 60)
+        if cfg.get('run_rx'):
+            print('[2/3] Running rx_integ...')
+            run_rx(cfg)
+            print('-' * 60)
+        else:
+            print('[2/3] rx_integ skipped by config')
+
+        if cfg.get('run_output'):
+            print('[3/3] Running output_integ...')
+            run_output(cfg)
+            print('-' * 60)
+        else:
+            print('[3/3] output_integ skipped by config')
     else:
-        print('[3/3] output_integ skipped by config')
+        # Auto mode: enumerate all experiments under root_directory
+        exp_root = Path(cfg['root_directory'])
+        if not exp_root.exists():
+            print(f"Root directory not found: {exp_root}")
+            return 1
+
+        exp_names = [p.name for p in sorted(exp_root.iterdir()) if p.is_dir() and not should_skip(p.name)]
+
+        if not exp_names:
+            print('No experiments found for AUTO mode')
+            return 0
+
+        print(f"Auto mode: found {len(exp_names)} experiments under {exp_root}")
+
+        for idx, exp_name in enumerate(exp_names, 1):
+            print('=' * 60)
+            print(f"[{idx}/{len(exp_names)}] Experiment: {exp_name}")
+            print('-' * 60)
+
+            # Build per-experiment cfg
+            per_cfg = dict(cfg)
+            per_cfg['experiment_directory'] = exp_name
+
+            if per_cfg.get('run_market'):
+                print('[1/3] Running market_integ...')
+                run_market(per_cfg)
+                print('-' * 60)
+            else:
+                print('[1/3] market_integ skipped by config')
+
+            if per_cfg.get('run_rx'):
+                print('[2/3] Running rx_integ...')
+                run_rx(per_cfg)
+                print('-' * 60)
+            else:
+                print('[2/3] rx_integ skipped by config')
+
+            if per_cfg.get('run_output'):
+                print('[3/3] Running output_integ...')
+                run_output(per_cfg)
+                print('-' * 60)
+            else:
+                print('[3/3] output_integ skipped by config')
 
     print('All integrations done.')
     return 0

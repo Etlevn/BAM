@@ -1,5 +1,6 @@
 {
   "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR",
+  "out_dir": "_br",
   "run_rx": true,
   "rx_expected_filename": "_rX.csv",
   "rx_merged_output": "br_rx.csv",

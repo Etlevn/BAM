@@ -22,7 +22,8 @@ class OutputIntegrator:
         """Initialize the output integrator"""
         self.config = self._load_config(config_file)
         self.root_dir = Path(self.config['root_directory'])
-        self.exp_dir = self.root_dir / self.config['experiment_directory']
+        exp_dir_name = self.config.get('experiment_directory')
+        self.exp_dir = (self.root_dir / exp_dir_name) if exp_dir_name else None
         self.output_filename = self.config['output_filename']
 
     def _load_config(self, config_file: str = None) -> Dict[str, Any]:
@@ -37,8 +38,8 @@ class OutputIntegrator:
         with open(config_path, 'r', encoding='utf-8') as f:
             cfg = json.load(f)
         
-        # Required fields
-        required = ['root_directory', 'experiment_directory', 'output_filename']
+        # Required fields (experiment_directory optional for auto mode)
+        required = ['root_directory', 'output_filename']
         missing = [k for k in required if k not in cfg or not cfg.get(k)]
         if missing:
             raise ValueError('Config missing required fields: ' + ', '.join(missing))
@@ -111,7 +112,7 @@ class OutputIntegrator:
 
     def get_formal_simulation_indices(self) -> List[str]:
         """Get all formal (20 rounds) simulation_index names"""
-        if not self.exp_dir.exists():
+        if self.exp_dir is None or not self.exp_dir.exists():
             print(f"Experiment directory not found: {self.exp_dir}")
             return []
         
@@ -276,13 +277,34 @@ def main():
     
     try:
         integrator = OutputIntegrator(args.config)
-        
-        if args.simulation_index:
-            # Process single simulation_index
-            integrator.integrate_simulation_output(args.simulation_index)
+
+        def _should_skip(name: str) -> bool:
+            return name.startswith('_') or name.startswith('.')
+
+        if integrator.exp_dir is None:
+            exp_root = integrator.root_dir
+            if not exp_root.exists():
+                print(f"Root directory not found: {exp_root}")
+                return 1
+            exp_names = [p.name for p in sorted(exp_root.iterdir()) if p.is_dir() and not _should_skip(p.name)]
+            if not exp_names:
+                print('No experiments found for AUTO mode')
+                return 0
+            print(f"Auto mode: found {len(exp_names)} experiments under {exp_root}")
+            for idx, exp_name in enumerate(exp_names, 1):
+                print('=' * 60)
+                print(f"[{idx}/{len(exp_names)}] Experiment: {exp_name}")
+                print('-' * 60)
+                integrator.exp_dir = integrator.root_dir / exp_name
+                if args.simulation_index:
+                    integrator.integrate_simulation_output(args.simulation_index)
+                else:
+                    integrator.integrate_all_outputs()
         else:
-            # Process all simulation_index
-            integrator.integrate_all_outputs()
+            if args.simulation_index:
+                integrator.integrate_simulation_output(args.simulation_index)
+            else:
+                integrator.integrate_all_outputs()
     
     except Exception as e:
         print(f"Error: {e}")

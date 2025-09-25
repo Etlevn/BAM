@@ -24,7 +24,8 @@ class MarketTxtIntegrator:
     def __init__(self, config_file: Optional[str] = None):
         self.config = self._load_config(config_file)
         self.root_dir = Path(self.config['root_directory'])
-        self.exp_dir = self.root_dir / self.config['experiment_directory']
+        exp_dir_name = self.config.get('experiment_directory')
+        self.exp_dir = (self.root_dir / exp_dir_name) if exp_dir_name else None
 
     def _load_config(self, config_file: Optional[str]) -> Dict:
         """
@@ -50,7 +51,8 @@ class MarketTxtIntegrator:
             }
             if market_type == 'sgl':
                 merged['sgl_llm_type'] = external.get('sgl_llm_type')
-            missing = [k for k in ['root_directory', 'experiment_directory', 'output_filename'] if not merged.get(k)]
+            # experiment_directory optional for auto mode
+            missing = [k for k in ['root_directory', 'output_filename'] if not merged.get(k)]
             if missing:
                 raise ValueError("Config missing required fields: " + ", ".join(missing))
             return merged
@@ -66,7 +68,7 @@ class MarketTxtIntegrator:
     # formal runs (market contains r1..rN, continuous from 1, max round >= 20)
     # ---------------------------------------------------------------------
     def discover_formal_simulation_indices(self) -> List[str]:
-        if not self.exp_dir.exists():
+        if self.exp_dir is None or not self.exp_dir.exists():
             return []
 
         indices: List[str] = []
@@ -408,10 +410,30 @@ def main():
         if default_cfg.exists():
             args.config = str(default_cfg)
 
-    integrator = MarketTxtIntegrator(
-        config_file=args.config,
-    )
-    integrator.run()
+    integrator = MarketTxtIntegrator(config_file=args.config)
+
+    def _should_skip(name: str) -> bool:
+        return name.startswith('_') or name.startswith('.')
+
+    # Auto mode: if experiment_directory not provided, iterate root_directory subfolders
+    if integrator.exp_dir is None:
+        exp_root = integrator.root_dir
+        if not exp_root.exists():
+            print(f"Root directory not found: {exp_root}")
+            return
+        exp_names = [p.name for p in sorted(exp_root.iterdir()) if p.is_dir() and not _should_skip(p.name)]
+        if not exp_names:
+            print('No experiments found for AUTO mode')
+            return
+        print(f"Auto mode: found {len(exp_names)} experiments under {exp_root}")
+        for idx, exp_name in enumerate(exp_names, 1):
+            print('=' * 60)
+            print(f"[{idx}/{len(exp_names)}] Experiment: {exp_name}")
+            print('-' * 60)
+            integrator.exp_dir = integrator.root_dir / exp_name
+            integrator.run()
+    else:
+        integrator.run()
 
 
 if __name__ == '__main__':

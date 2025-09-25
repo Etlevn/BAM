@@ -22,7 +22,8 @@ class DataIntegrator:
     def __init__(self, config_file: str = None):
         self.config = self._load_config(config_file)
         self.root_dir = Path(self.config['root_directory'])
-        self.exp_dir = self.root_dir / self.config['experiment_directory']
+        exp_dir_name = self.config.get('experiment_directory')
+        self.exp_dir = (self.root_dir / exp_dir_name) if exp_dir_name else None
         
     def _load_config(self, config_file: str) -> Dict:
         if config_file and os.path.exists(config_file):
@@ -41,7 +42,8 @@ class DataIntegrator:
             if market_type == 'sgl':
                 merged['sgl_llm_type'] = external.get('sgl_llm_type')
 
-            missing = [k for k in ['root_directory', 'experiment_directory', 'output_filename'] if not merged.get(k)]
+            # experiment_directory is optional (auto mode supported)
+            missing = [k for k in ['root_directory', 'output_filename'] if not merged.get(k)]
             if missing:
                 raise ValueError("Config missing required fields: " + ", ".join(missing))
             return merged
@@ -58,7 +60,7 @@ class DataIntegrator:
         Returns:
             List of simulation_index
         """
-        if not self.exp_dir.exists():
+        if self.exp_dir is None or not self.exp_dir.exists():
             print(f"Experiment directory does not exist: {self.exp_dir}")
             return []
             
@@ -379,15 +381,42 @@ def main():
         config_file=args.config,
     )
 
-    sims = integrator.get_available_simulation_indices()
-    if not sims:
-        print('No formal simulation_index found')
-        return
+    # Auto mode: if experiment_directory not provided, iterate subdirectories under root_directory
+    def _should_skip(name: str) -> bool:
+        return name.startswith('_') or name.startswith('.')
 
-    for sim in sims:
-        success = integrator.run_integration(sim)
-        if success:
-            print(f'Processed: {sim}')
+    if integrator.exp_dir is None:
+        exp_root = integrator.root_dir
+        if not exp_root.exists():
+            print(f"Root directory not found: {exp_root}")
+            return
+        exp_names = [p.name for p in sorted(exp_root.iterdir()) if p.is_dir() and not _should_skip(p.name)]
+        if not exp_names:
+            print('No experiments found for AUTO mode')
+            return
+        print(f"Auto mode: found {len(exp_names)} experiments under {exp_root}")
+        for idx, exp_name in enumerate(exp_names, 1):
+            print('=' * 60)
+            print(f"[{idx}/{len(exp_names)}] Experiment: {exp_name}")
+            print('-' * 60)
+            integrator.exp_dir = integrator.root_dir / exp_name
+            sims = integrator.get_available_simulation_indices()
+            if not sims:
+                print('No formal simulation_index found')
+                continue
+            for sim in sims:
+                success = integrator.run_integration(sim)
+                if success:
+                    print(f'Processed: {sim}')
+    else:
+        sims = integrator.get_available_simulation_indices()
+        if not sims:
+            print('No formal simulation_index found')
+            return
+        for sim in sims:
+            success = integrator.run_integration(sim)
+            if success:
+                print(f'Processed: {sim}')
 
 
 if __name__ == "__main__":

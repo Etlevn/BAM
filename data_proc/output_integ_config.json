@@ -1,7 +1,7 @@
 {
-  "market_type": "sgl",
-  "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 2_EP",
-  "experiment_directory": "deepseek-ai_DeepSeek-V3-0324",
+  "market_type": "br",
+  "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR",
+  "experiment_directory": "",
   "output_filename": "_output.csv",
   "sgl_llm_type": "deepseek-ai/DeepSeek-V3-0324"
 }

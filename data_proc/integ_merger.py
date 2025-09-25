@@ -222,8 +222,11 @@ class BatchMerger:
             print("Error: no data to save")
             return ""
         
-        # Build output file path
-        output_file = self.root_dir / self.config['merged_output']
+        # Build output file path (support single configurable subdirectory for all outputs)
+        out_dir_cfg = self.config.get('out_dir', '') or ''
+        out_dir_path = (self.root_dir / out_dir_cfg) if out_dir_cfg else self.root_dir
+        out_dir_path.mkdir(parents=True, exist_ok=True)
+        output_file = out_dir_path / self.config['merged_output']
         
         try:
             # Save CSV
@@ -243,7 +246,8 @@ class BatchMerger:
         print("=" * 60)
         print(f"Root: {self.root_dir}")
         print(f"Expected input: {self.config['expected_filename']}")
-        print(f"Output: {self.config['merged_output']}")
+        out_dir_cfg = self.config.get('out_dir', '') or ''
+        print(f"Output: {(out_dir_cfg + '/' if out_dir_cfg else '')}{self.config['merged_output']}")
         print("-" * 50)
         
         # Merge all CSV
@@ -280,12 +284,14 @@ def main():
         # Preserve original expected/output for safety
         original_expected = merger.config.get('expected_filename')
         original_output = merger.config.get('merged_output')
+        original_outdir = merger.config.get('out_dir')
         for item in merger.config['batch_items']:
             # Temporarily set expected_filename and merged_output
             merger.config['expected_filename'] = item['expected_filename']
             merger.config['merged_output'] = item['merged_output']
             print("-" * 60)
-            print(f"Now merging for: expected={item['expected_filename']} -> output={item['merged_output']}")
+            pretty_out = ((merger.config.get('out_dir','') + '/') if merger.config.get('out_dir') else '') + item['merged_output']
+            print(f"Now merging for: expected={item['expected_filename']} -> output={pretty_out}")
             ok = merger.run_batch_merge()
             all_ok = all_ok and ok
         # Restore
@@ -293,6 +299,8 @@ def main():
             merger.config['expected_filename'] = original_expected
         if original_output:
             merger.config['merged_output'] = original_output
+        if original_outdir is not None:
+            merger.config['out_dir'] = original_outdir
         print("\n🎉 Batch merges completed" if all_ok else "\n❌ Some batch merges failed")
     else:
         success = merger.run_batch_merge()

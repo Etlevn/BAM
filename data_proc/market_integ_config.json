@@ -1,7 +1,7 @@
 {
-  "market_type": "sgl",
-  "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 2_EP",
-  "experiment_directory": "Qwen_Qwen3-235B-A22B-Instruct-2507",
+  "market_type": "br",
+  "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR",
+  "experiment_directory": "",
   "output_filename": "_mkt.csv",
   "sgl_llm_type": "Qwen/Qwen3-235B-A22B-Instruct-2507"
 }
