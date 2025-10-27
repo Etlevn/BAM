@@ -6,7 +6,7 @@ Centralizes all path configurations and experiment settings.
 # ============================================================
 
 # Experiment mode configuration
-EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model mode
+EXPERIMENT_MODE = "br"  # "br" for Battle Royale mode, "sgl" for Single model mode
 
 # Single model configuration
 SINGLE_MODEL_CONFIG = {
@@ -21,15 +21,15 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "gemini-2.5-flash-lite",
+            "name": "grok-3",
             "count": 10,
-            "description": "Gemini 2.5 Pro",
-            "service_name": "google"
+            "description": "Grok 3",
+            "service_name": ""
         },
         {
-            "name": "claude-3-7-sonnet-20250219",
+            "name": "Qwen/Qwen2.5-72B-Instruct",
             "count": 10,
-            "description": "Claude 3.7 Sonnet",
+            "description": "Qwen 2.5 Max",
             "service_name": ""
         }
     ]
@@ -70,9 +70,10 @@ EXPERIMENT_CONFIG = {
 
 # API configuration
 API_CONFIG = {
-    "api_mode": "expected_parrot",  # "openai" or "expected_parrot"
+    "api_mode": "expected_parrot",  # "openai", "expected_parrot", or "deepseek"
     "openai_api_key": os.getenv("OPENAI_API_KEY", ""),  # Load from .env file
-    "expected_parrot_api_key": os.getenv("EXPECTED_PARROT_API_KEY", "")  # Load from .env file
+    "expected_parrot_api_key": os.getenv("EXPECTED_PARROT_API_KEY", ""),  # Load from .env file
+    "deepseek_api_key": os.getenv("DEEPSEEK_API_KEY", "")  # Load from .env file
 }
 
 def get_llm_count():

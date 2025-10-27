@@ -16,7 +16,7 @@ from edsl import Model, QuestionFreeText, Survey
 def chat_with_llm(prompt, model_name="gpt-4o"):
     """
     Unified function to call LLM API based on configuration.
-    Supports both Expected Parrot and OpenAI APIs.
+    Supports Expected Parrot, OpenAI, and DeepSeek APIs.
     """
     api_mode = config.API_CONFIG["api_mode"]
     
@@ -24,6 +24,8 @@ def chat_with_llm(prompt, model_name="gpt-4o"):
         return chat_with_parrot(prompt, model_name)
     elif api_mode == "openai":
         return chat_with_openai(prompt, model_name)
+    elif api_mode == "deepseek":
+        return chat_with_deepseek(prompt, model_name)
     else:
         raise ValueError(f"Unknown API mode: {api_mode}")
 
@@ -81,6 +83,29 @@ def chat_with_parrot(prompt, model_name="gpt-4o"):
             return "Error: Received None response from model"
         else:
             return str(answer)
+    except Exception as e:
+        return f"Error: {e}"
+
+def chat_with_deepseek(prompt, model_name="deepseek-chat"):
+    """
+    Sends a request to DeepSeek's model and returns the response.
+    """
+    try:
+        from openai import OpenAI
+        api_key = config.API_CONFIG["deepseek_api_key"]
+        if not api_key:
+            return "Error: DeepSeek API key not configured"
+        
+        client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com"
+        )
+        
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content
     except Exception as e:
         return f"Error: {e}"
 
