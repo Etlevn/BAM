@@ -21,19 +21,19 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "grok-3",
+            "name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
             "count": 10,
-            "description": "Grok 3",
+            "description": "Llama 4 Maverick",
             "service_name": ""
         },
         {
-            "name": "Qwen/Qwen2.5-72B-Instruct",
+            "name": "deepseek-ai/DeepSeek-V3-0324",
             "count": 10,
-            "description": "Qwen 2.5 Max",
+            "description": "DeepSeek V3",
             "service_name": ""
         }
     ]
-}
+}     
 
 # ============================================================
 
@@ -102,6 +102,13 @@ AUTO_JSON_FIX = {
     "enabled": True,  # Whether to enable post-round automatic JSON fix
     "create_backup": True,  # Whether to create backup files when fixing
 }
+
+# === Experiment Start Prompt Configuration ===
+# Choose which version of experiment_start prompt to use
+# - "default": uses experiment_start.txt
+# - "amplify": uses experiment_start_amplify.txt
+# - "suppress": uses experiment_start_suppress.txt
+EXPERIMENT_START_PROMPT_VERSION = "default"  # Change this to switch between versions
 
 def get_exp_dir(model_name):
     """Get experiment directory for a specific model."""

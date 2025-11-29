@@ -144,7 +144,16 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
     """
 
     # Load shared experiment prompts from the prompt directory
-    experiment_start_content = read_file(os.path.join(init.INIT_PROMPT_DIR, "experiment_start.txt"))
+    # Select experiment_start file based on config
+    prompt_version = config.EXPERIMENT_START_PROMPT_VERSION
+    if prompt_version == "amplify":
+        experiment_start_filename = "experiment_start_amplify.txt"
+    elif prompt_version == "suppress":
+        experiment_start_filename = "experiment_start_suppress.txt"
+    else:  # default or any other value
+        experiment_start_filename = "experiment_start.txt"
+    
+    experiment_start_content = read_file(os.path.join(init.INIT_PROMPT_DIR, experiment_start_filename))
     experiment_conditions_content = read_file(os.path.join(init.INIT_PROMPT_DIR, "experiment_conditions.json"))
     order_forecast_start_content = read_file(os.path.join(init.INIT_PROMPT_DIR, "order_forecast_start.txt"))
     order_forecast_end_content = read_file(os.path.join(init.INIT_PROMPT_DIR, "order_forecast_end.txt"))
