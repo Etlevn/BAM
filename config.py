@@ -107,10 +107,10 @@ AUTO_JSON_FIX = {
 # Specify the filenames for all prompt files used in the experiment
 # All files should be located in init/prompt/ directory
 PROMPT_FILES = {
-    "experiment_start": "experiment_start.txt",  # Main experiment start prompt
+    "experiment_start": "experiment_start_sup_1.txt",  # Main experiment start prompt
     "experiment_conditions": "experiment_conditions.json",  # Experiment conditions
     "order_forecast_start": "order_forecast_start.txt",  # Order forecast start prompt
-    "order_forecast_end": "order_forecast_end.txt",  # Order forecast end prompt
+    "order_forecast_end": "order_forecast_end_sup_1.txt",  # Order forecast end prompt
     "order_forecast_template": "order_forecast_template.json",  # Order forecast template
 }
 
