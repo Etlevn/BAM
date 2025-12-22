@@ -6,14 +6,14 @@ Centralizes all path configurations and experiment settings.
 # ============================================================
 
 # Experiment mode configuration
-EXPERIMENT_MODE = "br"  # "br" for Battle Royale mode, "sgl" for Single model mode
+EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model mode
 
 # Single model configuration
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
-    "model_name": "gpt-5",  # Default model (used in single model mode)
+    "model_name": "claude-3-7-sonnet-20250219",  # Default model (used in single model mode)
     "description": "",  # Optional human-readable description
-    "service_name": "openai",  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
+    "service_name": "",  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
 
 # Battle Royale configuration
