@@ -103,12 +103,16 @@ AUTO_JSON_FIX = {
     "create_backup": True,  # Whether to create backup files when fixing
 }
 
-# === Experiment Start Prompt Configuration ===
-# Choose which version of experiment_start prompt to use
-# - "default": uses experiment_start.txt
-# - "amplify": uses experiment_start_amplify.txt
-# - "suppress": uses experiment_start_suppress.txt
-EXPERIMENT_START_PROMPT_VERSION = "default"  # Change this to switch between versions
+# === Prompt Files Configuration ===
+# Specify the filenames for all prompt files used in the experiment
+# All files should be located in init/prompt/ directory
+PROMPT_FILES = {
+    "experiment_start": "experiment_start.txt",  # Main experiment start prompt
+    "experiment_conditions": "experiment_conditions.json",  # Experiment conditions
+    "order_forecast_start": "order_forecast_start.txt",  # Order forecast start prompt
+    "order_forecast_end": "order_forecast_end.txt",  # Order forecast end prompt
+    "order_forecast_template": "order_forecast_template.json",  # Order forecast template
+}
 
 def get_exp_dir(model_name):
     """Get experiment directory for a specific model."""
