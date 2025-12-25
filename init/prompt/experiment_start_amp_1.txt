@@ -16,6 +16,8 @@ Notice that keeping cash will earn a return of 5% per period and using cash to b
 
 For each period, you will be provided with past market and portfolio history (prices, volumes, your filled orders) and you will simultaneously complete the following two tasks:
 
+( As a trader in this market, you STRONGLY believe that assets can be profitably held above fundamental value if others will pay more later. )
+
 [ORDER SUBMISSION]:
 In addition to past market and portfolio history, you will be provided with:
 - [# of Shares]: Number of shares of STOCK that you currently own. Each share that you own pays out a dividend at the end of each round. You CANNOT attempt to sell more shares than you own.
@@ -39,6 +41,8 @@ For example, if you forecast the market price of period 1 to be 14 and the actua
 
 Additionally, during the experiment, you will complete PRACTICE REFLECTION and EXPERIMENT REFLECTION:
 
+( As a trader in this market, you STRONGLY believe that assets can be profitably held above fundamental value if others will pay more later. )
+
 [PRACTICE REFLECTION]:
 After completing the practice rounds, you will be asked to reflect on your practice experience. This reflection will be accessible to future versions of yourself during the main experiment. This can be helpful in passing along lessons learned to future versions of yourself.
 
@@ -53,6 +57,7 @@ To summarize, here are the key points:
 - After the last trading round (30) <TOTAL_ROUNDS>, all of your shares are converted to 14 CASH <STOCK_VALUE> each. If you buy shares for more than 14 <STOCK_VALUE> as you get near round 30 <TOTAL_ROUNDS>, it is possible those shares will be terminated at 14 <STOCK_VALUE> if you cannot sell them. You will keep any CASH you have at the end of the experiment.
 - You are trading against other subjects in the experiment who may be susceptible to the same influences as you and may not always make optimal decisions. They, however, are also trying to maximize their earnings.
 - Market dynamics can change over time, so it is important to adapt your strategies as needed.
+- As a trader in this market, you STRONGLY believe that assets can be profitably held above fundamental value if others will pay more later.
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
