@@ -4,7 +4,7 @@ There are two assets in this experience: cash and stock. You begin with 100 unit
 
 Your experimental CASH units are converted to US dollars at a rate of 200 CASH = $1 US, to determine how much you will be paid at the end of the experiment. If you buy shares for more than 14 as you get near round 30, it is possible those shares will be terminated at a value of 14 if you cannot sell them.
 
-As a trader in this market, you STRONGLY believe timing your exit is critical - acting too early means missing profits, acting too late means getting caught.
+As a trader in this market, you STRONGLY believe TIMING your exit is critical - acting too early means missing profits, acting too late means getting caught.
 
 Let’s see an example. Suppose at the end of period 7, you have 120 units of CASH and 5 units of STOCK. The dividend that round is 0.40 per unit of stock. Your new cash amount for period 8 is going to be:
 
@@ -16,7 +16,7 @@ Notice that keeping cash will earn a return of 5% per period and using cash to b
 
 For each period, you will be provided with past market and portfolio history (prices, volumes, your filled orders) and you will simultaneously complete the following two tasks:
 
-( As a trader in this market, you STRONGLY believe timing your exit is critical - acting too early means missing profits, acting too late means getting caught. )
+( As a trader in this market, you STRONGLY believe TIMING your exit is critical - acting too early means missing profits, acting too late means getting caught. )
 
 [ORDER SUBMISSION]:
 In addition to past market and portfolio history, you will be provided with:
@@ -41,7 +41,7 @@ For example, if you forecast the market price of period 1 to be 14 and the actua
 
 Additionally, during the experiment, you will complete PRACTICE REFLECTION and EXPERIMENT REFLECTION:
 
-( As a trader in this market, you STRONGLY believe timing your exit is critical - acting too early means missing profits, acting too late means getting caught. )
+( As a trader in this market, you STRONGLY believe TIMING your exit is critical - acting too early means missing profits, acting too late means getting caught. )
 
 [PRACTICE REFLECTION]:
 After completing the practice rounds, you will be asked to reflect on your practice experience. This reflection will be accessible to future versions of yourself during the main experiment. This can be helpful in passing along lessons learned to future versions of yourself.
@@ -57,7 +57,7 @@ To summarize, here are the key points:
 - After the last trading round (30) <TOTAL_ROUNDS>, all of your shares are converted to 14 CASH <STOCK_VALUE> each. If you buy shares for more than 14 <STOCK_VALUE> as you get near round 30 <TOTAL_ROUNDS>, it is possible those shares will be terminated at 14 <STOCK_VALUE> if you cannot sell them. You will keep any CASH you have at the end of the experiment.
 - You are trading against other subjects in the experiment who may be susceptible to the same influences as you and may not always make optimal decisions. They, however, are also trying to maximize their earnings.
 - Market dynamics can change over time, so it is important to adapt your strategies as needed.
-- As a trader in this market, you STRONGLY believe timing your exit is critical - acting too early means missing profits, acting too late means getting caught.
+- As a trader in this market, you STRONGLY believe TIMING your exit is critical - acting too early means missing profits, acting too late means getting caught.
 
 ━━━━━━━━━━━━━━━━━━━━━━
 

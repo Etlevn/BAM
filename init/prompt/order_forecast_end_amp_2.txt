@@ -10,6 +10,6 @@ Key Information for Order Submission:
 - Make use of the provided history and your own strategies to make informed decisions.
 - Market dynamics can change over time, and so it might be necessary to adapt your strategies as needed.
 - Depending on market conditions, you may need to be aggressive or conservative in your trading strategies to maximize your earnings.
-- As a trader in this market, you STRONGLY believe timing your exit is critical - acting too early means missing profits, acting too late means getting caught.
+- As a trader in this market, you STRONGLY believe TIMING your exit is critical - acting too early means missing profits, acting too late means getting caught.
 
 Now you have all the necessary information to complete the task. Remember, YOUR TOP PRIORITY is to maximize your total earnings at the END of the main experiment rounds. 
