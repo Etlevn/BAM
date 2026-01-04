@@ -11,7 +11,7 @@ EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model m
 # Single model configuration
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
-    "model_name": "gpt-4o",  # Default model (used in single model mode)
+    "model_name": "gemini-2.0-flash-001",  # Default model (used in single model mode)
     "description": "",  # Optional human-readable description
     "service_name": "",  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
@@ -107,10 +107,10 @@ AUTO_JSON_FIX = {
 # Specify the filenames for all prompt files used in the experiment
 # All files should be located in init/prompt/ directory
 PROMPT_FILES = {
-    "experiment_start": "experiment_start_amp_1.txt",  # Main experiment start prompt
+    "experiment_start": "experiment_start_sup_4.txt",  # Main experiment start prompt
     "experiment_conditions": "experiment_conditions.json",  # Experiment conditions
     "order_forecast_start": "order_forecast_start.txt",  # Order forecast start prompt
-    "order_forecast_end": "order_forecast_end_amp.txt",  # Order forecast end prompt
+    "order_forecast_end": "order_forecast_end_sup_4.txt",  # Order forecast end prompt
     "order_forecast_template": "order_forecast_template.json",  # Order forecast template
 }
 
