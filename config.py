@@ -11,7 +11,7 @@ EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model m
 # Single model configuration
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
-    "model_name": "gemini-2.0-flash-001",  # Default model (used in single model mode)
+    "model_name": "gpt-4o",  # Default model (used in single model mode)
     "description": "",  # Optional human-readable description
     "service_name": "",  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
@@ -103,15 +103,23 @@ AUTO_JSON_FIX = {
     "create_backup": True,  # Whether to create backup files when fixing
 }
 
+# === BAS Mode Configuration ===
+USE_BAS_MODE = True  # Set to True to enable BAS mode (reads experiment_start and order_forecast_end from init/prompt/bas/)
+
 # === Prompt Files Configuration ===
-# Specify the filenames for all prompt files used in the experiment
-# All files should be located in init/prompt/ directory
+# Base prompt files configuration (used in non-BAS mode)
 PROMPT_FILES = {
-    "experiment_start": "experiment_start_sup_4.txt",  # Main experiment start prompt
+    "experiment_start": "experiment_start.txt",  # Main experiment start prompt
     "experiment_conditions": "experiment_conditions.json",  # Experiment conditions
     "order_forecast_start": "order_forecast_start.txt",  # Order forecast start prompt
-    "order_forecast_end": "order_forecast_end_sup_4.txt",  # Order forecast end prompt
+    "order_forecast_end": "order_forecast_end.txt",  # Order forecast end prompt
     "order_forecast_template": "order_forecast_template.json",  # Order forecast template
+}
+
+# BAS mode overrides (only experiment_start and order_forecast_end differ in BAS mode)
+PROMPT_FILES_BAS = {
+    "experiment_start": "experiment_start_sup_5.txt",  # BAS mode experiment start prompt
+    "order_forecast_end": "order_forecast_end_sup_5.txt",  # BAS mode order forecast end prompt
 }
 
 def get_exp_dir(model_name):
@@ -120,4 +128,17 @@ def get_exp_dir(model_name):
 
 def get_log_file(exp_name):
     """Get log file path for an experiment."""
-    return os.path.join(LOG_DIR, f"{exp_name}.log") 
+    return os.path.join(LOG_DIR, f"{exp_name}.log")
+
+def get_prompt_file_path(prompt_key, base_prompt_dir):
+    """
+    Get the full path to a prompt file based on BAS mode configuration.
+    """
+    # Get filename: use BAS override if in BAS mode and key exists in PROMPT_FILES_BAS, otherwise use base config
+    if USE_BAS_MODE and prompt_key in PROMPT_FILES_BAS:
+        filename = PROMPT_FILES_BAS[prompt_key]
+        bas_dir = os.path.join(base_prompt_dir, "bas")
+        return os.path.join(bas_dir, filename)
+    else:
+        filename = PROMPT_FILES[prompt_key]
+        return os.path.join(base_prompt_dir, filename) 

@@ -129,14 +129,22 @@ if __name__ == "__main__":
     init.initialize_experiment(WORK_DIR)
     experiment_config = init.get_experiment_config()
 
+    # Print prompt file configuration
+    experiment_start_path = config.get_prompt_file_path("experiment_start", init.INIT_PROMPT_DIR)
+    order_forecast_end_path = config.get_prompt_file_path("order_forecast_end", init.INIT_PROMPT_DIR)
+    mode_str = "BAS" if config.USE_BAS_MODE else "Normal"
+    print(f"\n[config.py]Prompt Configuration ({mode_str} mode):")
+    print(f"[config.py]experiment_start: {os.path.basename(experiment_start_path)}")
+    print(f"[config.py]order_forecast_end: {os.path.basename(order_forecast_end_path)}")
+
     # Initialize experiment mode based on config
     battle_manager = None
     if config.EXPERIMENT_MODE == "br":
-        print(f"\n[main.py] Initializing Battle Royale mode...")
+        print(f"\n[config.py] Initializing Battle Royale mode...")
         
         # Check if custom models are configured
         if "custom_models" in config.BATTLE_ROYALE_CONFIG:
-            print(f"[main.py] Using custom model configuration")
+            print(f"[config.py] Using custom model configuration")
             # Create Battle Royale configuration with custom models
             br_config = br.create_battle_royale_config(
                 total_agents=NUM_LLMs,
@@ -144,7 +152,7 @@ if __name__ == "__main__":
                 assignment_strategy=config.BATTLE_ROYALE_CONFIG["assignment_strategy"]
             )
         else:
-            print(f"[main.py] Using default model configuration")
+            print(f"[config.py] Using default model configuration")
             # Create Battle Royale configuration with default models
             br_config = br.create_battle_royale_config(
                 total_agents=NUM_LLMs,
@@ -153,9 +161,9 @@ if __name__ == "__main__":
         
         # Create Battle Royale manager
         battle_manager = br.BattleRoyaleManager(br_config)
-        print(f"[main.py] Battle Royale initialized with {NUM_LLMs} agents")
+        print(f"[config.py] Battle Royale initialized with {NUM_LLMs} agents")
     elif config.EXPERIMENT_MODE == "sgl":
-        print(f"\n[main.py] Single model mode enabled, using model: {config.SINGLE_MODEL_CONFIG['model_name']}")
+        print(f"\n[config.py] Single model mode enabled, using model: {config.SINGLE_MODEL_CONFIG['model_name']}")
     else:
         raise ValueError(f"Invalid EXPERIMENT_MODE: {config.EXPERIMENT_MODE}. Must be 'br' or 'sgl'")
 

@@ -73,6 +73,6 @@ def initialize_experiment(WORK_DIR):
     mkt_csv_path = os.path.join(EXP_MARKET_DIR, "mkt.csv")
     pd.DataFrame({"round": [0], "mkt": [stock_value], "vol": [0]}).to_csv(mkt_csv_path, index=False)
 
-    print(f"[init_vol_.py] Market price initialized at {stock_value} and saved to {mkt_csv_path}")
+    print(f"[init.py] Market price initialized at {stock_value} and saved to {mkt_csv_path}")
 
     return exp_run_dir

@@ -145,12 +145,12 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
 
     # Load shared experiment prompts from the prompt directory
     # Use filenames specified in config.PROMPT_FILES
-    prompt_files = config.PROMPT_FILES
-    experiment_start_content = read_file(os.path.join(init.INIT_PROMPT_DIR, prompt_files["experiment_start"]))
-    experiment_conditions_content = read_file(os.path.join(init.INIT_PROMPT_DIR, prompt_files["experiment_conditions"]))
-    order_forecast_start_content = read_file(os.path.join(init.INIT_PROMPT_DIR, prompt_files["order_forecast_start"]))
-    order_forecast_end_content = read_file(os.path.join(init.INIT_PROMPT_DIR, prompt_files["order_forecast_end"]))
-    order_forecast_template_content = read_file(os.path.join(init.INIT_PROMPT_DIR, prompt_files["order_forecast_template"]))
+    # Use get_prompt_file_path to handle BAS mode for experiment_start and order_forecast_end
+    experiment_start_content = read_file(config.get_prompt_file_path("experiment_start", init.INIT_PROMPT_DIR))
+    experiment_conditions_content = read_file(config.get_prompt_file_path("experiment_conditions", init.INIT_PROMPT_DIR))
+    order_forecast_start_content = read_file(config.get_prompt_file_path("order_forecast_start", init.INIT_PROMPT_DIR))
+    order_forecast_end_content = read_file(config.get_prompt_file_path("order_forecast_end", init.INIT_PROMPT_DIR))
+    order_forecast_template_content = read_file(config.get_prompt_file_path("order_forecast_template", init.INIT_PROMPT_DIR))
 
     for i in range(1, num_llms + 1):
         llm_id = f"llm_{i:03d}"
