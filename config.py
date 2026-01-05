@@ -118,8 +118,8 @@ PROMPT_FILES = {
 
 # BAS mode overrides (only experiment_start and order_forecast_end differ in BAS mode)
 PROMPT_FILES_BAS = {
-    "experiment_start": "experiment_start_sup_5.txt",  # BAS mode experiment start prompt
-    "order_forecast_end": "order_forecast_end_sup_5.txt",  # BAS mode order forecast end prompt
+    "experiment_start": "experiment_start_amp_5.txt",  # BAS mode experiment start prompt
+    "order_forecast_end": "order_forecast_end_amp_5.txt",  # BAS mode order forecast end prompt
 }
 
 def get_exp_dir(model_name):

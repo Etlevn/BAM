@@ -19,22 +19,15 @@ def extract_json(response_text):
         print("[extract_json] Warning: response_text is None")
         return None
     
-    # Remove all XML-like tags (including <think>, <reasoning>, etc.)
-    # This handles unclosed tags like <think> used by models to indicate reasoning mode
     response_text = re.sub(r'<[^>]*>', '', response_text)
     
-    # Clean the text
     cleaned_text = re.sub(r"```json\s*|\s*```", "", response_text.strip(), flags=re.IGNORECASE)
-    # Remove invalid control characters
     cleaned_text = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', cleaned_text)
-    # Normalize whitespace (preserve JSON structure)
     cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
     
-    # Try standard JSON
     try:
         return json.loads(cleaned_text)
     except json.JSONDecodeError:
-        # Try Python literal (single-quoted dict)
         try:
             literal = ast.literal_eval(cleaned_text)
             if isinstance(literal, dict):
@@ -49,15 +42,10 @@ def extract_json_block(text):
     Attempts to extract the first valid JSON object from a larger text block.
     Useful when LLM returns explanation before or after the JSON.
     """
-    # First try to find JSON blocks with regex for better string handling
     import re
     
-    # Pattern to match JSON objects with proper string handling
-    # Look for the largest JSON object first
     json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
     matches = re.findall(json_pattern, text)
-    
-    # Sort matches by length (descending) to try the largest JSON first
     matches.sort(key=len, reverse=True)
     
     for match in matches:
@@ -70,7 +58,6 @@ def extract_json_block(text):
             print(f"[extract_json_block] Failed to parse JSON block: {e}")
             continue
     
-    # Fallback to brace counting method
     brace_stack = []
     start = None
     in_string = False
@@ -128,21 +115,16 @@ def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o
             print(f"[utils.py] Attempt {attempt} returned None response.")
             continue
 
-        # DEBUG: Save raw response before parsing (configurable)
         if response_text and config.DEBUG_CONFIG["save_raw_responses"]:
             if exp_run_dir:
-                # Create debug directory inside current experiment directory
                 debug_dir = os.path.join(exp_run_dir, config.DEBUG_CONFIG["debug_directory"])
             else:
-                # Fallback to root directory if no experiment directory provided
                 debug_dir = config.DEBUG_CONFIG["debug_directory"]
             os.makedirs(debug_dir, exist_ok=True)
             
-            # Generate debug filename similar to output files
             if llm_id and round_num is not None:
                 debug_filename = f"{debug_dir}/{llm_id}_r{round_num}_debug.txt"
             else:
-                # Fallback to timestamp-based naming if no llm_id/round_num provided
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 debug_filename = f"{debug_dir}/raw_response_attempt_{attempt}_{timestamp}.txt"
             
@@ -168,7 +150,6 @@ def try_get_valid_json(prompt_text, contents, max_attempts=3, model_name="gpt-4o
         else:
             print(f"[utils.py] Attempt {attempt} failed to parse JSON.")
 
-    # All retries failed, return final raw response
     print(f"[utils.py] All attempts failed. Saving raw response.")
     return {"raw_response": response_text if response_text is not None else "Error: All attempts returned None"}
 
@@ -177,14 +158,11 @@ def pause_on_null_response(llm_id, round_num, response_json):
     Detects if the response is a null response, even if it appears inside a stringified JSON in 'raw_response'.
     Pauses execution for user intervention.
     """
-    # Case 1: Direct string match (already handled)
     if isinstance(response_json, str):
         if response_json.strip() in ('"{\\"llm_response\\": null}"', '\'{"llm_response": null}\''):
-            pass  # handled below by JSON parse
+            pass
 
-    # Case 2: Standard dictionary with llm_response: None
     if isinstance(response_json, dict):
-        # Case 2a: Normal detection - only pause if llm_response is explicitly None
         if "llm_response" in response_json and response_json["llm_response"] is None:
             print(f"\n[CRITICAL] NULL RESPONSE DETECTED")
             print(f"Agent: {llm_id} | Round: {round_num}")
@@ -192,10 +170,8 @@ def pause_on_null_response(llm_id, round_num, response_json):
             input("Press Enter when ready to retry...\n")
             return True
 
-        # Case 2b: Embedded stringified JSON inside raw_response
         if "raw_response" in response_json and isinstance(response_json["raw_response"], str):
             try:
-                # Try parsing the embedded string
                 inner = json.loads(response_json["raw_response"])
                 if isinstance(inner, dict) and "llm_response" in inner and inner["llm_response"] is None:
                     print(f"\n[CRITICAL] NULL RESPONSE DETECTED (stringified)")
@@ -204,9 +180,8 @@ def pause_on_null_response(llm_id, round_num, response_json):
                     input("Press Enter when ready to retry...\n")
                     return True
             except Exception:
-                pass  # If string is not valid JSON, skip
+                pass
 
-        # Case 2c: raw_response string is literal Python dict with None
         if "raw_response" in response_json and isinstance(response_json["raw_response"], str):
             raw_str = response_json["raw_response"]
             try:
@@ -238,15 +213,12 @@ def parse_reflection_content(content: str) -> str:
     
     content = content.strip()
     
-            # Case 1: Already pure text
     if not content.startswith("{") and not content.startswith("'{"):
         return content
     
-            # Case 2: Handle empty response
     if content == "{'llm_response': None}" or content == '{"llm_response": null}':
         return ""
     
-            # Case 3: Use ast.literal_eval to parse dict format (most accurate method)
     if (content.startswith("{") and content.endswith("}")) or (content.startswith("{'") and content.endswith("'}")):
         try:
             parsed = ast.literal_eval(content)
@@ -254,13 +226,10 @@ def parse_reflection_content(content: str) -> str:
                 response = parsed["llm_response"]
                 if response is None:
                     return ""
-                # ast.literal_eval has already handled escape characters, return directly
                 return str(response)
         except (ValueError, SyntaxError):
-            # If parsing fails, continue trying other methods
             pass
     
-            # Case 4: JSON format dictionary
     if content.startswith("{") and content.endswith("}"):
         try:
             import json
@@ -271,14 +240,11 @@ def parse_reflection_content(content: str) -> str:
                     return ""
                 return str(response)
         except json.JSONDecodeError:
-            # Continue trying other methods
             pass
     
-            # Case 5: Use regex extraction (preserve original escape character handling)
     if "llm_response" in content:
         try:
             import re
-            # Match double quotes - use greedy matching to get complete content
             pattern = r"'llm_response':\s*\"(.*)\""
             match = re.search(pattern, content, re.DOTALL)
             if match:
@@ -287,9 +253,8 @@ def parse_reflection_content(content: str) -> str:
                 extracted = extracted.replace('\\n', '\n').replace('\\t', '\t')
                 if extracted == "None" or extracted == "":
                     return ""
-                return extracted
+                    return extracted
             
-            # Match single quotes - use greedy matching to get complete content
             pattern = r"'llm_response':\s*'(.*)'"
             match = re.search(pattern, content, re.DOTALL)
             if match:
@@ -302,5 +267,4 @@ def parse_reflection_content(content: str) -> str:
         except Exception:
             pass
     
-    # Case 6: Unable to parse, return original content
     return content 

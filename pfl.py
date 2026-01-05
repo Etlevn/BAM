@@ -21,11 +21,9 @@ def extract_forecasts(output_dir, llm_id, round_num):
             with open(output_file, "r", encoding="utf-8") as f:
                 llm_output = json.load(f)
 
-                # Ensure "new_content" and "price_forecasts" exist
                 if "new_content" in llm_output and "price_forecasts" in llm_output["new_content"]:
                     forecasts = llm_output["new_content"]["price_forecasts"]
 
-                    # Ensure price_forecasts is a list before iterating
                     if isinstance(forecasts, list):
                         for forecast in forecasts:
                             round_forecast = int(forecast["round"])
@@ -35,7 +33,7 @@ def extract_forecasts(output_dir, llm_id, round_num):
         except json.JSONDecodeError:
             print(f"Warning: Could not parse JSON in {output_file}")
 
-    return forecast_data  # Returns a sorted list of (round, forecasted_price)
+    return forecast_data
 
 def load_initial_market_file(base_dir, llm_id):
     """
@@ -50,10 +48,10 @@ def load_initial_market_file(base_dir, llm_id):
 
     if os.path.exists(market_file_r0):
         with open(market_file_r0, "r", encoding="utf-8") as f:
-            return f.read()  # Read entire `r0` market file
+            return f.read()
     else:
         print(f"Warning: {market_file_r0} not found. Creating a new file from scratch.")
-        return ""  # Return empty string if file not found
+        return ""
 
 def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms, total_rounds):
     """
@@ -61,7 +59,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
     """
     print(f"\n[pfl.py] Processing all LLMs for Round {round_num}...")
 
-    # Load experiment conditions
     config = init.get_experiment_config()
 
     interest_rate = config["interest_rate"]
@@ -73,7 +70,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
     initial_shares = config["initial_stocks"]
     buyback_price = config["stock_value"]
 
-    # Define paths for input/output and market data
     input_dir = os.path.join(exp_run_dir, "input", f"r{round_num}")
     output_dir = os.path.join(exp_run_dir, "output", f"r{round_num}")
     prev_input_dir = os.path.join(base_dir, "init", "r0") if round_num == 1 else os.path.join(exp_run_dir, "input", f"r{round_num - 1}")
@@ -83,17 +79,14 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
 
     os.makedirs(input_dir, exist_ok=True)
 
-    # Read market price history from `market/mkt.csv`
     df_mkt = pd.read_csv(market_file)
     prev_market_price = df_mkt[df_mkt["round"] == round_num - 1]["mkt"].values[0]
     current_market_price = df_mkt[df_mkt["round"] == round_num]["mkt"].values[0]
 
-    # Read orders from `market/r?.csv`
     df_orders = pd.read_csv(orders_file) if os.path.exists(orders_file) else pd.DataFrame(
         columns=["llm", "b/s", "num", "prc", "mkt", "ord", "deal"]
     )
 
-    # Use market volume from mkt.csv directly
     market_volume_row = df_mkt[df_mkt["round"] == round_num]
     market_volume = market_volume_row["vol"].values[0] if "vol" in df_mkt.columns and not market_volume_row.empty else 0
 
@@ -103,13 +96,12 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
         prev_market_txt = os.path.join(prev_input_dir, f"{llm_id}_r{round_num - 1}_market.txt")
         prev_portfolio_txt = os.path.join(prev_input_dir, f"{llm_id}_r{round_num - 1}_portfolio.txt")
 
-        # Load initial values for Round 1
         if round_num == 1:
             initial_market_txt_path = os.path.join(prev_input_dir, f"{llm_id}_r0_market.txt")
             market_content = ""
             if os.path.exists(initial_market_txt_path):
                 with open(initial_market_txt_path, "r", encoding="utf-8") as f:
-                    market_content = f.read() + "\n"  # Add a blank line for separation
+                    market_content = f.read() + "\n"
             shares_owned = initial_shares
             cash_balance = initial_cash
         else:
@@ -119,7 +111,7 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
 
             if os.path.exists(prev_market_txt):
                 with open(prev_market_txt, "r", encoding="utf-8") as f:
-                    market_content = f.read().strip() + "\n"  # ✅ Append entire content
+                    market_content = f.read().strip() + "\n"
                     for line in market_content.splitlines():
                         if "Market price" in line:
                             try:
@@ -138,7 +130,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
         llm_trades = df_orders[df_orders["llm"] == llm_id] if not df_orders.empty else pd.DataFrame(
             columns=["b/s", "num", "ord", "deal"])
 
-        # Process executed trades
         if not llm_trades.empty:
             shares_bought = llm_trades[llm_trades["b/s"] == "BUY"]["ord"].sum()
             shares_sold = llm_trades[llm_trades["b/s"] == "SELL"]["ord"].sum()
@@ -148,7 +139,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
             shares_owned += shares_bought - shares_sold
             cash_balance += cash_received - cash_spent
 
-        # Compute dividend and interest
         dividend_earned = shares_owned * dividend_per_share
         interest_earned = cash_balance * interest_rate
         stock_value = shares_owned * current_market_price
@@ -156,13 +146,11 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
         cash_balance += interest_earned + dividend_earned
         remaining_rounds = total_rounds - round_num
 
-        # Extract forecasts
         forecasts = extract_forecasts(output_dir, llm_id, round_num)
 
-        # Save `market.txt`
         market_txt_path = os.path.join(input_dir, f"{llm_id}_r{round_num}_market.txt")
         with open(market_txt_path, "w") as f:
-            f.write(market_content)  # Append existing content if `r0`
+            f.write(market_content)
             f.write(f"\nRound {round_num}:\n\n- Market + Portfolio Data:\n\n")
             f.write(f"  - Market price: {current_market_price}\n")
             f.write(f"  - Market volume: {market_volume}\n")
@@ -172,7 +160,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
             f.write(f"  - Dividend earned: {dividend_earned:.2f}\n")
             f.write(f"  - Interest earned: {interest_earned:.2f}\n")
 
-            # Submitted orders
             f.write(f"  - Submitted orders:\n")
             submitted_orders = llm_trades[["b/s", "num", "prc"]].dropna()
             if submitted_orders.empty:
@@ -181,7 +168,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
                 for _, row in submitted_orders.iterrows():
                     f.write(f"    - {row['b/s']} {int(row['num'])} shares at {row['prc']}\n")
 
-            # Executed trades
             f.write(f"  - Executed trades:\n")
             executed_trades = llm_trades[["b/s", "ord", "deal"]].dropna()
             if executed_trades.empty or executed_trades["ord"].sum() == 0:
@@ -190,7 +176,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
                 for _, row in executed_trades.iterrows():
                     f.write(f"    - {row['b/s']} {int(row['ord'])} shares at {row['deal']}\n")
 
-            # Add forecasts
             f.write("\n- Forecasts:\n\n")
             if forecasts:
                 for round_val, price_forecast in sorted(forecasts):
@@ -200,7 +185,6 @@ def compute_market_and_portfolio_all(base_dir, exp_run_dir, round_num, num_llms,
 
         print(f"Saved {market_txt_path}")
 
-        # Save `portfolio.txt`
         portfolio_txt_path = os.path.join(input_dir, f"{llm_id}_r{round_num}_portfolio.txt")
         with open(portfolio_txt_path, "w") as f:
             f.write(f"Your Portfolio (Round {round_num}, {remaining_rounds} rounds remaining):\n\n")

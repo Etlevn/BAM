@@ -47,7 +47,6 @@ class MarketTxtIntegrator:
                 'root_directory': external.get('root_directory'),
                 'experiment_directory': external.get('experiment_directory'),
                 'output_filename': external.get('output_filename'),
-                # target_round 可省略，将自动检测
             }
             if market_type == 'sgl':
                 merged['sgl_llm_type'] = external.get('sgl_llm_type')
@@ -101,13 +100,10 @@ class MarketTxtIntegrator:
     def get_llm_type_mapping(self, simulation_index: str) -> Dict[str, str]:
         market_type = self.config.get('market_type', 'br')
         if market_type == 'sgl':
-            # SGL mode: read model name from sgl_config.json
             return self._load_sgl_mapping(simulation_index)
         elif market_type == 'br':
-            # BR mode: read assignments from br_config.json
             return self._load_battle_royale_mapping(simulation_index)
         else:
-            # Unknown market type
             return {}
 
     def _load_sgl_mapping(self, simulation_index: str) -> Dict[str, str]:
@@ -127,7 +123,6 @@ class MarketTxtIntegrator:
                 with open(config_file, 'r', encoding='utf-8') as f:
                     sgl_config = json.load(f)
                 
-                # Extract model name and create mapping for all LLMs
                 model_name = sgl_config.get('model_name')
                 if model_name:
                     return {f'llm_{i:03d}': model_name for i in range(1, 21)}
@@ -160,7 +155,6 @@ class MarketTxtIntegrator:
             with open(config_file, 'r', encoding='utf-8') as f:
                 battle_config = json.load(f)
             
-            # Extract mapping from assignments
             assignments = battle_config.get('assignments', {})
             return assignments
             
@@ -184,7 +178,7 @@ class MarketTxtIntegrator:
         """
         lines = text.splitlines()
 
-        # 聚合为各个 Round 块
+        # Group into Round blocks
         blocks: List[Tuple[int, List[str]]] = []
         curr_round: Optional[int] = None
         curr_lines: List[str] = []
@@ -208,7 +202,6 @@ class MarketTxtIntegrator:
 
         records: List[Dict] = []
 
-        # Extract fields
         def extract_float(pattern: str, block_text: str) -> Optional[float]:
             mm = re.search(pattern, block_text, flags=re.IGNORECASE)
             if not mm:
@@ -230,7 +223,6 @@ class MarketTxtIntegrator:
         for rnd, blk_lines in blocks:
             blk = "\n".join(blk_lines)
 
-            # Market + Portfolio Data: field names vary slightly, use robust matching
             mkt_prc = extract_float(r"Market\s+price:\s*([\d\.]+)", blk)
             mkt_vol = extract_int(r"Market\s+volume:\s*([\d\.]+)", blk)
             stk_num = extract_int(r"#\s*of\s*shares\s*owned:\s*([-\d\.]+)", blk)
@@ -239,7 +231,6 @@ class MarketTxtIntegrator:
             div     = extract_float(r"Dividend\s+earned:\s*([-\d\.]+)", blk)
             intr    = extract_float(r"Interest\s+earned:\s*([-\d\.]+)", blk)
 
-            # Forecasts: match lines "- Round X price forecast: Y"
             fcst_pairs: List[Tuple[Optional[int], Optional[float]]] = []
             for line in blk.splitlines():
                 line_stripped = line.strip()
@@ -255,7 +246,6 @@ class MarketTxtIntegrator:
                         p_val = None
                     fcst_pairs.append((r_val, p_val))
 
-            # Keep first 4 pairs; pad with None if fewer
             fcst_pairs = fcst_pairs[:4]
             while len(fcst_pairs) < 4:
                 fcst_pairs.append((None, None))
@@ -321,7 +311,6 @@ class MarketTxtIntegrator:
 
             per_round = self.parse_market_txt(text)
 
-            # Expand all historical rounds (exclude Round 0), up to target_round
             for rr in per_round:
                 rnum = rr.get('round')
                 if not isinstance(rnum, int):
@@ -357,7 +346,6 @@ class MarketTxtIntegrator:
         if not records:
             return pd.DataFrame()
 
-        # Build DataFrame with specified column order
         columns = [
             'llm',
             'mkt_prc', 'mkt_vol', 'stk_num', 'stk_val', 'cash', 'div', 'int',

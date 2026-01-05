@@ -37,7 +37,6 @@ class DataIntegrator:
                 'root_directory': external.get('root_directory'),
                 'experiment_directory': external.get('experiment_directory'),
                 'output_filename': external.get('output_filename'),
-                # total_rounds 可省略，将自动检测
             }
             if market_type == 'sgl':
                 merged['sgl_llm_type'] = external.get('sgl_llm_type')
@@ -126,15 +125,10 @@ class DataIntegrator:
         market_type = self.config['market_type']
         
         if market_type == 'sgl':
-            # SGL mode: read model name from sgl_config.json
             return self._load_sgl_mapping(simulation_index)
-        
         elif market_type == 'br':
-            # BR mode: read assignments from battle_royale_config.json
             return self._load_battle_royale_mapping(simulation_index)
-        
         else:
-            # Other: no mapping
             return {}
     
     def _load_sgl_mapping(self, simulation_index: str) -> Dict[str, str]:
@@ -154,7 +148,6 @@ class DataIntegrator:
                 with open(config_file, 'r', encoding='utf-8') as f:
                     sgl_config = json.load(f)
                 
-                # Extract model name and create mapping for all LLMs
                 model_name = sgl_config.get('model_name')
                 if model_name:
                     return {f'llm_{i:03d}': model_name for i in range(1, 21)}
@@ -187,7 +180,6 @@ class DataIntegrator:
             with open(config_file, 'r', encoding='utf-8') as f:
                 battle_config = json.load(f)
             
-            # Extract mapping from assignments
             assignments = battle_config.get('assignments', {})
             return assignments
             
@@ -210,22 +202,12 @@ class DataIntegrator:
         if df.empty:
             return df
         
-        # Create a copy to avoid mutating original
         df_copy = df.copy()
-        
-        # Get llm_type_mapping
         llm_mapping = self.get_llm_type_mapping(simulation_index)
         
-        # Add llm_type column
         df_copy['llm_type'] = df_copy['llm'].map(llm_mapping)
-        
-        # Add market_type column
         df_copy['market_type'] = self.config['market_type']
-        
-        # Add round column
         df_copy['round'] = round_num
-        
-        # Add simulation_index column
         df_copy['simulation_index'] = simulation_index
         
         return df_copy
@@ -263,11 +245,9 @@ class DataIntegrator:
         for round_num in range(1, total_rounds + 1):
             print(f"  Processing round {round_num}...")
             
-            # Load round data
             round_df = self.load_round_data(simulation_index, round_num)
             
             if not round_df.empty:
-                # Add metadata
                 round_df_with_metadata = self.add_metadata_columns(round_df, simulation_index, round_num)
                 all_data.append(round_df_with_metadata)
             else:
@@ -277,7 +257,6 @@ class DataIntegrator:
             print(f"Error: no data found for {simulation_index}")
             return pd.DataFrame()
         
-        # Concatenate all data
         integrated_df = pd.concat(all_data, ignore_index=True)
         
         print(f"Integrated: {len(integrated_df)} rows")
@@ -298,23 +277,17 @@ class DataIntegrator:
             print("Error: no data to save")
             return ""
         
-        # Create output directory
         market_dir = self.exp_dir / simulation_index / 'market'
         market_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Build output file path
         output_file = market_dir / self.config['output_filename']
         
         try:
-            # Save CSV
             df.to_csv(output_file, index=False, encoding='utf-8')
             print(f"Saved to: {output_file}")
             return str(output_file)
         except Exception as e:
             print(f"Error: failed to save {output_file}: {e}")
             return ""
-    
-    # Summary feature removed
     
     def run_integration(self, simulation_index: str = None) -> bool:
         """
@@ -333,31 +306,24 @@ class DataIntegrator:
         print(f"Market type: {self.config['market_type']}")
         print("-" * 50)
         
-        # Check simulation_index directory exists
         sim_dir = self.exp_dir / simulation_index
         if not sim_dir.exists():
             print(f"Error: simulation_index directory not found: {sim_dir}")
             return False
         
-        # Integrate data
         integrated_df = self.integrate_simulation_data(simulation_index)
         
         if integrated_df.empty:
             print("Error: failed to integrate any data")
             return False
         
-        # Always save integrated data
         output_file = self.save_integrated_data(integrated_df, simulation_index)
         if not output_file:
             return False
         
-        # Do not generate summary report
-        
         print("-" * 50)
         print("Integration done!")
         return True
-    
-    # 取消列出功能（简化）
 
 
 def main():

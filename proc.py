@@ -20,7 +20,6 @@ def prepare_next_round(base_dir, exp_run_dir, round_num, num_llms):
     os.makedirs(next_input_dir, exist_ok=True)
     os.makedirs(market_dir, exist_ok=True)
 
-    # Initialize orders list
     orders_data = []
 
     for i in range(1, num_llms + 1):
@@ -43,7 +42,6 @@ def prepare_next_round(base_dir, exp_run_dir, round_num, num_llms):
                 orders_data.append([llm_id, "NA", 0, 0])
                 continue
 
-        # Extract and save plans and insights
         plans_content = llm_data.get("new_content", {}).get("PLANS.txt", "").strip()
         insights_content = llm_data.get("new_content", {}).get("INSIGHTS.txt", "").strip()
 
@@ -58,7 +56,6 @@ def prepare_next_round(base_dir, exp_run_dir, round_num, num_llms):
             f.write(insights_content)
         print(f"Saved {insights_file}")
 
-        # Extract submitted orders
         submitted_orders = llm_data.get("submitted_orders", [])
         if not submitted_orders:
             print(f"LLM {llm_id} did not submit any orders, filling with NA")
@@ -72,7 +69,6 @@ def prepare_next_round(base_dir, exp_run_dir, round_num, num_llms):
                     order["limit_price"]
                 ])
 
-        # Copy reflection file from `init/r0/` to `input/r?`
         r0_dir = os.path.join(base_dir, "init", "r0")
         reflection_src = os.path.join(r0_dir, f"{llm_id}_r0_reflection.txt")
         reflection_dest = os.path.join(next_input_dir, f"{llm_id}_r{round_num}_reflection.txt")
@@ -88,7 +84,6 @@ def prepare_next_round(base_dir, exp_run_dir, round_num, num_llms):
         else:
             print(f"Warning: Reflection file not found for {llm_id} in `r0`")
 
-    # Save basic order book so that mkt.py can run
     market_order_file = os.path.join(market_dir, f"r{round_num}.csv")
     df_orders = pd.DataFrame(orders_data, columns=["llm", "b/s", "num", "prc"])
     df_orders.to_csv(market_order_file, index=False)
