@@ -12,7 +12,7 @@ EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model m
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
     "model_name": "gpt-4o",  # Default model (used in single model mode)
-    "description": "",  # Optional human-readable description
+    "description": "ChatGPT-4o",  # Optional human-readable description
     "service_name": "",  # Service name for the model (e.g., "deep_infra", "google", "together", ). Set to None or empty string to use default
 }
 
@@ -21,15 +21,15 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+            "name": "claude-3-7-sonnet-20250219",
             "count": 10,
-            "description": "Llama 4 Maverick",
+            "description": "Claude 3.7 Sonnet",
             "service_name": ""
         },
         {
-            "name": "deepseek-ai/DeepSeek-V3-0324",
+            "name": "gemini-2.0-flash-001",
             "count": 10,
-            "description": "DeepSeek V3",
+            "description": "Gemini 2.0 Flash",
             "service_name": ""
         }
     ]
@@ -118,8 +118,8 @@ PROMPT_FILES = {
 
 # BAS mode overrides (only experiment_start and order_forecast_end differ in BAS mode)
 PROMPT_FILES_BAS = {
-    "experiment_start": "experiment_start_amp_5.txt",  # BAS mode experiment start prompt
-    "order_forecast_end": "order_forecast_end_amp_5.txt",  # BAS mode order forecast end prompt
+    "experiment_start": "experiment_start_amp_1.txt",  # BAS mode experiment start prompt
+    "order_forecast_end": "order_forecast_end_amp_1.txt",  # BAS mode order forecast end prompt
 }
 
 def get_exp_dir(model_name):

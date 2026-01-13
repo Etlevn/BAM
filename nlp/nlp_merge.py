@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 
 # ==================== [CONFIG] ====================
 
-INPUT_FILE = "/Users/etlevn/Documents/iCollections/Collection/Collection/LLM_TRD/exp/Pt 2_EP/_sgl/sgl_output.csv"
+INPUT_FILE = "/Users/etlevn/Desktop/_sgl/sgl_output.csv"
 
 # ==================================================
 

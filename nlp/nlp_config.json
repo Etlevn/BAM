@@ -1,6 +1,6 @@
 {
   "file_settings": {
-    "default_input_file": "/Users/etlevn/Documents/iCollections/Collection/Collection/LLM_TRD/exp/Pt 2_EP/_sgl/sgl_output_miss.csv",
+    "default_input_file": "/Users/etlevn/Desktop/_sgl/sgl_output.csv",
     "prompt_template": "nlp_prmt_2.txt"
   },
   "processing_settings": {

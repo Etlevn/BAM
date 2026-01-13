@@ -1,5 +1,5 @@
 {
-  "root_directory": "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 2_EP",
+  "root_directory": "/Users/etlevn/Desktop",
   "out_dir": "_sgl",
   "run_rx": true,
   "rx_expected_filename": "_rX.csv",
