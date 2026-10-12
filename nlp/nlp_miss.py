@@ -25,17 +25,17 @@ def check_missing():
     print(f"[CONFIG] Input file: {input_file}")
     print(f"[CONFIG] JSON directory: {json_dir}")
     
-    # 检查输入文件是否存在
+    # Check whether the input file exists
     if not input_file.exists():
         print(f"[ERROR] Input file not found: {input_file}")
         return
     
-    # 加载数据
+    # Load the input data
     print(f"\n[INFO] Loading data from: {input_file}")
     df = pd.read_csv(input_file)
     print(f"[INFO] Total rows: {len(df)}")
     
-    # 检查JSON目录是否存在
+    # Check whether the JSON directory exists
     if not json_dir.exists():
         print(f"[WARNING] JSON directory not found: {json_dir}")
         print("[INFO] No JSON files to check. All data is missing.")
@@ -49,11 +49,11 @@ def check_missing():
         print(f"[SAVE] All missing data saved to: {missing_csv}")
         return
     
-    # 获取所有JSON文件
+    # Collect all JSON files
     json_files = list(json_dir.glob("*.json"))
     print(f"[INFO] Found {len(json_files)} JSON files")
     
-    # 统计
+    # Track missing-file counts
     missing_plan = []
     missing_insight = []
     missing_both = []
@@ -77,12 +77,12 @@ def check_missing():
         if not has_plan and not has_insight:
             missing_both.append(idx)
     
-    # 计算统计信息
+    # Compute summary statistics
     total = len(df)
     complete_count = total - len(missing_both)
     completion_rate = complete_count / total * 100 if total > 0 else 0
     
-    # 输出统计 - 使用统一的英文格式
+    # Print statistics in a consistent English format
     print("\n" + "="*60)
     print("  Missing Data Statistics")
     print("="*60)
@@ -97,7 +97,7 @@ def check_missing():
     
     if missing_indices:
         missing_df = df.iloc[missing_indices].copy()
-        # 获取原文件名（不含扩展名）并添加 _miss 后缀
+        # Build the output name from the original stem plus a _miss suffix
         input_stem = input_file.stem
         input_suffix = input_file.suffix
         missing_filename = f"{input_stem}_miss{input_suffix}"
