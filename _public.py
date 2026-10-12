@@ -30,6 +30,7 @@ SCRIPT_NAMES = {SCRIPT_PATH.name, "_public.py", "public_.py", "public_", "public
 
 REQUIRED_FILES = ("LICENSE", "README.md")
 ENV_PATHS = (".env", "nested/.env")
+PUB_DIR_PATHS = (f"{PROJECT}-pub/marker", "nested/sample-pub/marker")
 ENV_EXAMPLE_NAMES = {".env.example", ".env.sample", ".env.template"}
 CREDENTIAL_NAMES = {
     ".env",
@@ -361,6 +362,22 @@ def pattern_ignores_env_file(pattern: str) -> bool:
     return pattern == ".env" or pattern.endswith("/.env")
 
 
+def pattern_ignores_pub_dir(pattern: str) -> bool:
+    """A directory rule whose name is the glob *-pub, such as *-pub/."""
+    if pattern.startswith("!"):
+        return False
+    body = pattern[1:] if pattern.startswith("/") else pattern
+    if body.startswith("**/"):
+        body = body[3:]
+    if body.endswith("/**"):
+        body = body[:-3]
+    elif body.endswith("/"):
+        body = body[:-1]
+    else:
+        return False
+    return body.split("/")[-1] == "*-pub"
+
+
 def gitignore_ignores_env(tracked: list[str]) -> bool:
     """Both the repository root and a nested .env must be ignored by a project gitignore."""
     if ".gitignore" not in tracked:
@@ -389,6 +406,36 @@ def gitignore_ignores_env(tracked: list[str]) -> bool:
         if pattern is not None and pattern_ignores_env_file(pattern):
             ignored.add(pathname)
     return set(ENV_PATHS) <= ignored
+
+
+def gitignore_ignores_pub_dir(tracked: list[str]) -> bool:
+    """A *-pub directory at the repository root and in a subdirectory must be ignored."""
+    if ".gitignore" not in tracked:
+        return False
+    result = git_output(
+        [
+            "git",
+            "-c",
+            "core.excludesFile=/dev/null",
+            "check-ignore",
+            "--no-index",
+            "-v",
+            "--",
+            *PUB_DIR_PATHS,
+        ]
+    )
+    if result.returncode not in {0, 1}:
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        raise PublishError(detail or "git check-ignore failed")
+    ignored = set()
+    for line in result.stdout.decode("utf-8", "replace").splitlines():
+        if "\t" not in line:
+            continue
+        meta, pathname = line.split("\t", 1)
+        pattern = repo_gitignore_pattern(meta)
+        if pattern is not None and pattern_ignores_pub_dir(pattern):
+            ignored.add(pathname)
+    return set(PUB_DIR_PATHS) <= ignored
 
 
 def ignored_paths(files: list[str]) -> list[str]:
@@ -584,6 +631,8 @@ def main() -> int:
     try:
         if not gitignore_ignores_env(tracked):
             findings.append("missing gitignore rule: .env")
+        if not gitignore_ignores_pub_dir(tracked):
+            findings.append("missing gitignore rule: *-pub/")
         for relative in ignored_paths(tracked):
             findings.append(f"{relative}: gitignored file")
     except PublishError as exc:
