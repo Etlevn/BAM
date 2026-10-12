@@ -10,7 +10,7 @@ Runs three integration pipelines using a single JSON config:
 Config example (all_integ_config.json):
 {
   "market_type": "br",
-  "root_directory": "/Users/you/Documents/Projects/LLM_TRD",
+  "root_directory": "/Users/you/Documents/Projects/AIT",
   "experiment_directory": "exp",
   "sgl_llm_type": "claude-3-5-sonnet-20240620",
   "run_market": true,

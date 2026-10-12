@@ -45,6 +45,7 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
+*-pub/
 exp/
 log/*/
 init/prac/

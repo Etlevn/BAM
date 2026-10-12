@@ -1,6 +1,6 @@
 {
   "file_settings": {
-    "default_input_file": "/Users/etlevn/Desktop/_sgl/sgl_output.csv",
+    "default_input_file": "/Users/you/Documents/Projects/AIT/exp/_sgl/sgl_output.csv",
     "prompt_template": "nlp_prmt_2.txt"
   },
   "processing_settings": {

@@ -23,7 +23,7 @@ See README.md for detailed documentation.
 """
 
 __version__ = "1.0.0"
-__author__ = "LLM_TRD Project"
+__author__ = "AIT Project"
 
 # Import main utilities for easy access
 from . import nlp_utils

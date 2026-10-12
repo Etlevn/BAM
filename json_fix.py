@@ -8,10 +8,10 @@ import config
 # You can define experiments root base dir and an optional single experiment dir name.
 # They will be joined to form an effective single experiment path when both are set.
 # Examples:
-#   GLOBAL_ROOT_BASE_DIR = "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 3_BR"
+#   GLOBAL_ROOT_BASE_DIR = "/Users/you/Documents/Projects/AIT/exp/Pt 3_BR"
 #   GLOBAL_EXPERIMENT_DIR_NAME = "gpt-4o VS gemini-2.5"
 # If GLOBAL_EXPERIMENT_DIR_NAME is empty, scanning will traverse all experiments under GLOBAL_ROOT_BASE_DIR.
-GLOBAL_ROOT_BASE_DIR = "/Users/etlevn/Documents/iCollections/Collection/LLM_TRD/exp/Pt 2_EP"
+GLOBAL_ROOT_BASE_DIR = "/Users/you/Documents/Projects/AIT/exp/Pt 2_EP"
 GLOBAL_EXPERIMENT_DIR_NAME = ""
 
 # ==============================
@@ -519,7 +519,7 @@ def scan_and_fix_all_experiments(root_exp_dir: str, create_backup: bool = True) 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="JSON fix tool for LLM_TRD outputs")
+    parser = argparse.ArgumentParser(description="JSON fix tool for AIT outputs")
     sub = parser.add_subparsers(dest="cmd")
 
     # Manual scan
