@@ -93,8 +93,9 @@ AUTO_JSON_FIX = {
 # BAS mode
 # ============================================================
 
-USE_BAS_MODE = False
-BAS_BIAS_ID = "amp_01"
+USE_BAS_MODE = True
+# "base" | "amp_NN" | "sup_NN" (prompt/bas_biases.json); works for sgl and br.
+BAS_BIAS_ID = "base"
 
 # Optional per-process overrides (used by batch RUN_ALL_BAS children).
 _bas_mode_env = os.getenv("BAM_USE_BAS_MODE")

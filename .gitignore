@@ -77,7 +77,8 @@ ep_html/
 *-pub/
 
 # --- Local docs / research artifacts ---
-docs/
+docs/superpowers
+docs/paper
 notes/
 artifacts/
 .worktrees/

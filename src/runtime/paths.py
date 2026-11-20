@@ -46,29 +46,22 @@ def require_exp_group() -> str:
 
 
 def bas_series_prefix(bias_id: str) -> str:
-    """
-    Map BAS_BIAS_ID to a short series prefix.
-
-    amp_01 -> a01, sup_20 -> s20. Raises ValueError on invalid ids.
-    """
-    m = re.fullmatch(r"(amp|sup)_(\d{2})", str(bias_id).strip())
+    """Map bias id to series prefix: base→b, amp_01→a01, sup_20→s20."""
+    text = str(bias_id).strip()
+    if text.lower() == "base":
+        return "b"
+    m = re.fullmatch(r"(amp|sup)_(\d{2})", text)
     if not m:
         raise ValueError(
-            f"Invalid BAS_BIAS_ID {bias_id!r}; expected 'amp_NN' or 'sup_NN' "
-            "with two-digit index (e.g. 'amp_01', 'sup_20')"
+            f"Invalid BAS_BIAS_ID {bias_id!r}; expected 'base', 'amp_NN', or 'sup_NN' "
+            "with two-digit index (e.g. 'base', 'amp_01', 'sup_20')"
         )
     family, num = m.group(1), m.group(2)
     return ("a" if family == "amp" else "s") + num
 
 
 def get_exp_series_name() -> str:
-    """
-    Second-level series folder under exp/{EXP_GROUP}/.
-
-    - sgl: sanitized SINGLE_MODEL_CONFIG['model_name']
-    - br: sanitized custom_models names joined with ' & '
-    - When USE_BAS_MODE: prefix with bas_series_prefix(BAS_BIAS_ID) + '_'
-    """
+    """Series folder under exp/{EXP_GROUP}/; BAS mode adds b_/aNN_/sNN_ prefix."""
     if config.EXPERIMENT_MODE == "sgl":
         base = sanitize_model_dirname(config.SINGLE_MODEL_CONFIG["model_name"])
     elif config.EXPERIMENT_MODE == "br":

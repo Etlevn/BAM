@@ -116,3 +116,85 @@ def plot_group(
 
     print(f"Saved {saved} plots → {plots_root}/<series>/<session>.png")
     return plots_root
+
+
+def plot_mkt_agg(
+    mkt_agg_df,
+    *,
+    save_path: Path,
+    group: str = "",
+) -> Path:
+    """
+    Paper Figure 2 style: mean price + 95% CI band, volume bars, FV dashed line.
+    Expects columns from build_mkt_agg_table / <GROUP>_mkt_agg.csv.
+    """
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import pandas as pd
+
+    df = mkt_agg_df.copy()
+    df["round"] = pd.to_numeric(df["round"], errors="coerce")
+    df = df.dropna(subset=["round"]).sort_values("round")
+    rounds = df["round"].astype(int).tolist()
+    mean_p = pd.to_numeric(df["mean_price"], errors="coerce")
+    ci_lo = pd.to_numeric(df["ci_low"], errors="coerce")
+    ci_hi = pd.to_numeric(df["ci_up"], errors="coerce")
+    mean_v = pd.to_numeric(df["mean_volume"], errors="coerce").fillna(0.0)
+    fv = float(pd.to_numeric(df["fundamental_value"], errors="coerce").dropna().iloc[0])
+
+    fig, ax1 = plt.subplots(figsize=(8, 4.5))
+    ax1.fill_between(
+        rounds, ci_lo, ci_hi, color="tab:red", alpha=0.2, label="95% CI"
+    )
+    ax1.plot(
+        rounds,
+        mean_p,
+        color="tab:red",
+        marker="o",
+        markersize=3,
+        linewidth=1.5,
+        label="Mean Market Price",
+    )
+    ax1.axhline(
+        y=fv,
+        linestyle="--",
+        color="gray",
+        linewidth=1.2,
+        label=f"Fundamental Value ({fv:g})",
+    )
+    ax1.set_xlabel("Round")
+    ax1.set_ylabel("Price", color="tab:red")
+    ax1.tick_params(axis="y", labelcolor="tab:red")
+    y_max = max(
+        fv + 2,
+        float(mean_p.max()) if mean_p.notna().any() else 0,
+        float(ci_hi.max()) if ci_hi.notna().any() else 0,
+        30,
+    )
+    ax1.set_ylim(0, y_max + 2)
+
+    ax2 = ax1.twinx()
+    ax2.bar(rounds, mean_v, alpha=0.3, color="tab:blue", label="Mean Volume")
+    ax2.set_ylabel("Volume", color="tab:blue")
+    ax2.tick_params(axis="y", labelcolor="tab:blue")
+
+    title = "Aggregate Market Price Dynamics"
+    if group:
+        title = f"{title} ({group})"
+    ax1.set_title(title)
+    ax1.grid(True, linestyle=":")
+
+    # Combined legend
+    h1, l1 = ax1.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax1.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
+
+    fig.tight_layout()
+    save_path = ensure_cased_path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(save_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved mkt_agg plot → {save_path}")
+    return save_path

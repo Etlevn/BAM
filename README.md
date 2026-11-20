@@ -131,9 +131,7 @@ exp/{EXP_GROUP}/{series}/{YYYYMMDD_HHMMSS}/
 
 ### Prompts and BAS mode
 
-Shared prompt files live in `prompt/`. When `USE_BAS_MODE` is `True`, a single bias sentence from `prompt/bas_biases.json` (selected by `BAS_BIAS_ID`, e.g. `amp_01` / `sup_20`) is overlaid onto the standard templates. Series folders then get a short prefix (`a01_gpt-…`, `s20_…`).
-
-Set `USE_BAS_MODE` to `False` to use the standard templates named in `PROMPT_FILES` with no series prefix.
+Shared prompts live in `prompt/`. With `USE_BAS_MODE`, `BAS_BIAS_ID` (`base` / `amp_NN` / `sup_NN`) overlays one sentence onto templates and prefixes the series folder (`b_` / `aNN_` / `sNN_`). Works for sgl and br; `base` is an empty shock (in-group benchmark). Set `USE_BAS_MODE=False` for unprefixed standard templates.
 
 ### Other switches
 

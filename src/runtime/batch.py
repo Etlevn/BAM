@@ -57,7 +57,7 @@ def expected_progress_total(num_experiments: int) -> int:
 def list_bas_as_bias_ids(
     catalog_path: str | os.PathLike[str] | None = None,
 ) -> list[str]:
-    """Return amp_* then sup_* ids from bas_biases.json (40 entries when complete)."""
+    """Ids from bas_biases.json: base (if any), then amp_*, then sup_*."""
     path = (
         os.fspath(catalog_path)
         if catalog_path is not None
@@ -65,9 +65,12 @@ def list_bas_as_bias_ids(
     )
     with open(path, encoding="utf-8") as f:
         catalog = json.load(f)
+    ids: list[str] = []
+    if "base" in catalog:
+        ids.append("base")
     amps = sorted(k for k in catalog if str(k).startswith("amp_"))
     sups = sorted(k for k in catalog if str(k).startswith("sup_"))
-    return amps + sups
+    return ids + amps + sups
 
 
 def build_job_plan(
@@ -197,7 +200,7 @@ def run_batch_main(
 
     jobs = build_job_plan(num_runs=num_runs, run_all_bas=run_all_bas)
     if run_all_bas and not jobs:
-        print("RUN_ALL_BAS set but no amp_/sup_ ids found in bas_biases.json")
+        print("RUN_ALL_BAS set but no base/amp_/sup_ ids found in bas_biases.json")
         return 1
 
     total_jobs = len(jobs)

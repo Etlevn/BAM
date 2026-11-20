@@ -12,8 +12,7 @@ NUM_RUNS = 1
 # Max concurrent experiment processes.
 MAX_WORKERS = 10
 
-# When True: force BAS on, cycle all amp_01–20 + sup_01–20 (40 biases) × NUM_RUNS.
-# Example: NUM_RUNS=10 → 400 experiments. Uses same model/series settings from config.py.
+# Cycle base + amp/sup (41) × NUM_RUNS; uses config EXPERIMENT_MODE (sgl or br).
 RUN_ALL_BAS = True
 
 # ============================================================
