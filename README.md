@@ -173,20 +173,17 @@ A run directory contains:
 | `market/rN.csv` | Orders and executions for that round |
 | `market/mkt.csv` | Price and volume by round |
 
-`data_proc/` turns those files into tables. `all_integ.py` can run the three integrators together:
+`integ.py` (backed by `src/integ/`) turns those files into group-level tables. Edit the config block at the top of `integ.py` to choose first-level folders under `exp/` (for example `SGL`, `BR`). For each group it scans formal sessions, reads `market_type` and `llm` assignments from that session's `config.json`, and writes only under a result folder whose name mirrors the on-disk first-level directory (same spelling/case, with a leading `_`):
 
-- `market_integ.py` parses market-history text into `_mkt.csv`
-- `rx_integ.py` stacks per-round order files into `_rX.csv`
-- `output_integ.py` parses model JSON into `_output.csv`
+- `exp/SGL/_SGL/SGL_rx.csv` — orders from `market/r*.csv`
+- `exp/SGL/_SGL/SGL_mkt.csv` — portfolio / market history / forecasts from `input/.../*_market.txt`
+- `exp/SGL/_SGL/SGL_output.csv` — obs / plan / insight from `output/r*/llm_*.json`
 
-`integ_merger.py` concatenates those tables across runs. Set `market_type` to `sgl` or `br` so each row can be labeled with the model that traded it. Formal runs are those whose round files continue through at least round 20.
+`classify_group_sessions` (used by `integ.py`) does both in one pass: `status=complete` formal sessions are merged; `status=running` (and sessions with no config yet) are left in place; other non-complete sessions are moved under `exp/<GROUP>/<series>/_<NONCOMPLETE_FOLDER>/<session>/` (default `_incomplete`, set in `integ.py`). Intermediate per-session integ CSVs are not written.
 
 ```bash
-python data_proc/all_integ.py --config data_proc/all_integ_config.json
-python data_proc/integ_merger.py --config data_proc/integ_merger_config.json
+python integ.py
 ```
-
-The individual integrators (`market_integ.py`, `rx_integ.py`, `output_integ.py`) use the matching `*_config.json` in the same directory.
 
 ## Analysis
 
@@ -213,15 +210,16 @@ python nlp/nlp_main.py --input path/to/sgl_output.csv --output path/to/nlp_out -
 ```text
 config.py                 parameters only
 main.py                   entry → src.runtime.runner
+integ.py                  entry → src.integ (group CSV tables)
 src/market/               clearing, order book prep
 src/agents/               trading calls, validate, battle
 src/portfolio/            settle, dividend, prepare
 src/prompts/              build, fill
 src/runtime/              setup, paths, runner, batch
+src/integ/                orders, snapshots, outputs aggregation
 src/support/              utils, repair, collect
 prompt/                   standard prompts (+ bas_biases.json)
 anal/                     price, forecast, and robustness summaries
-data_proc/                parsers and cross-run merges
 nlp/                      mechanism coding of plans and insights
 ```
 

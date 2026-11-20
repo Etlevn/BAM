@@ -83,3 +83,4 @@ artifacts/
 .worktrees/
 research/
 tests/
+scripts/
