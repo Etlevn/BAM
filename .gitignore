@@ -71,8 +71,6 @@ tmp/
 # --- Experiment runtime outputs ---
 exp/
 log/
-init/prac/
-init/r0/
 ep_html/
 *.html
 .edsl_model_archive.json
