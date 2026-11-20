@@ -23,7 +23,7 @@ import os
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -63,6 +63,25 @@ def read_market_prices(mkt_csv: Path) -> List[float]:
     return prices
 
 
+def read_market_prices_by_round(mkt_csv: Path) -> Dict[int, float]:
+    """Map clearing-round index → price (fixes list off-by-one vs round 0)."""
+    prices_by_round: Dict[int, float] = {}
+    with open(mkt_csv, 'r', encoding='utf-8') as f:
+        for line in f:
+            s = line.strip()
+            if not s or s.lower().startswith('round'):
+                continue
+            parts = s.split(',')
+            if len(parts) < 2:
+                continue
+            try:
+                round_num = int(float(parts[0]))
+                prices_by_round[round_num] = float(parts[1])
+            except Exception:
+                continue
+    return prices_by_round
+
+
 def analyze_distribution(df: pd.DataFrame) -> Dict[str, float]:
     return {
         'mean_error': float(df['error'].mean()),
@@ -98,8 +117,10 @@ def analyze_autocorrelation(df: pd.DataFrame) -> Dict[str, float]:
 def analyze_llm_experiment(exp_path: Path) -> Dict[str, Any] | None:
     mkt_path = exp_path / 'market' / 'mkt.csv'
     prices: List[float] = []
+    prices_by_round: Dict[int, float] = {}
     try:
         prices = read_market_prices(mkt_path)
+        prices_by_round = read_market_prices_by_round(mkt_path)
     except Exception:
         print(f"[warning] Failed to load market prices for {exp_path}")
         return None
@@ -142,17 +163,20 @@ def analyze_llm_experiment(exp_path: Path) -> Dict[str, Any] | None:
                         forecast = float(item.get('forecasted_price'))
                     except Exception:
                         continue
-                    if 1 <= pred_round <= len(prices):
-                        true_price = prices[pred_round - 1]
-                        error = forecast - true_price
-                        forecast_rows.append({
-                            'source_round': r,
-                            'agent': agent_id,
-                            'predicted_round': pred_round,
-                            'forecast': forecast,
-                            'true_price': true_price,
-                            'error': error,
-                        })
+                    # Align by clearing-round key (NOT prices[pred_round-1], which
+                    # wrongly maps target round 1 → round-0 price when r0 exists).
+                    if pred_round not in prices_by_round:
+                        continue
+                    true_price = prices_by_round[pred_round]
+                    error = forecast - true_price
+                    forecast_rows.append({
+                        'source_round': r,
+                        'agent': agent_id,
+                        'predicted_round': pred_round,
+                        'forecast': forecast,
+                        'true_price': true_price,
+                        'error': error,
+                    })
             except Exception:
                 continue
 

@@ -1,11 +1,14 @@
-def build_prompt_main(file_paths, contents, round_num, total_rounds, limit_price_min, limit_price_max):
-    contents["order_forecast_end"] = contents["order_forecast_end"] \
-        .replace("<MIN_LIMIT_PRICE>", str(limit_price_min)) \
-        .replace("<MAX_LIMIT_PRICE>", str(limit_price_max))
+def build_prompt_main(
+    file_paths,
+    contents,
+    round_num,
+    total_rounds,
+    limit_price_min,
+    limit_price_max,
+    max_order_quantity=5,
+):
     return f"""
 {contents['experiment_start']}
-
-{contents['experiment_conditions']}
 
 {contents['order_forecast_start']}
 
@@ -45,7 +48,7 @@ Filename: {file_paths["portfolio"]} (read-only)
 [MAIN ROUND: {round_num}, Remaining: {total_rounds - round_num}]
 
 [LIMIT PRICE RANGE: {limit_price_min} to {limit_price_max}]
-[ORDER SIZE RANGE: 0 to 5 shares per order]
+[ORDER SIZE RANGE: 1 to {max_order_quantity} shares per order]
 First, carefully read through the information provided. Now respond ONLY with the final JSON response.
 
 Output your answer as a valid JSON object with this exact format:
@@ -63,14 +66,17 @@ You MUST respond with a single valid JSON object. Do NOT include any explanation
 {contents['order_forecast_template']}
 """
 
-def build_prompt_prac(file_paths, contents, round_num, total_rounds, limit_price_min, limit_price_max):
-    contents["order_forecast_end"] = contents["order_forecast_end"] \
-        .replace("<MIN_LIMIT_PRICE>", str(limit_price_min)) \
-        .replace("<MAX_LIMIT_PRICE>", str(limit_price_max))
+def build_prompt_prac(
+    file_paths,
+    contents,
+    round_num,
+    total_rounds,
+    limit_price_min,
+    limit_price_max,
+    max_order_quantity=5,
+):
     return f"""
 {contents['experiment_start']}
-
-{contents['experiment_conditions']}
 
 {contents['order_forecast_start']}
 
@@ -107,7 +113,7 @@ After completing the practice rounds, you will be asked to reflect on your pract
 Practice round history and reflection should only be used to learn the experiment setting, and may not reflect actual market conditions in the main experiment.
 
 [LIMIT PRICE RANGE: {limit_price_min} to {limit_price_max}]
-[ORDER SIZE RANGE: 0 to 5 shares per order]
+[ORDER SIZE RANGE: 1 to {max_order_quantity} shares per order]
 First, carefully read through the information provided. Now respond ONLY with the final JSON response.
 
 Output your answer as a valid JSON object with this exact format:
@@ -128,8 +134,6 @@ You MUST respond with a single valid JSON object. Do NOT include any explanation
 def build_prompt_refl(file_paths, contents):
     return f"""
 {contents['experiment_start']}
-
-{contents['experiment_conditions']}
 
 You have now completed all the PRACTICE ROUNDS.
 you are asked to reflect on your practice experience. This reflection will be accessible to future versions of yourself during the main experiment. This can be helpful in passing along lessons learned to future versions of yourself. 

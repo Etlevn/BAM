@@ -5,6 +5,7 @@ import ast
 
 import init
 import prompt
+import prompt_fill
 import utils
 import valid
 import config
@@ -135,10 +136,20 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         battle_manager: Battle Royale manager instance (optional)
     """
 
-    experiment_start_content = read_file(config.get_prompt_file_path("experiment_start", init.INIT_PROMPT_DIR))
-    experiment_conditions_content = read_file(config.get_prompt_file_path("experiment_conditions", init.INIT_PROMPT_DIR))
+    experiment_config = init.get_experiment_config()
+    max_order_quantity = int(experiment_config.get("max_order_quantity", 5))
+    use_bas = bool(config.USE_BAS_MODE)
+    bias_text = prompt_fill.load_bas_bias(config.BAS_BIAS_ID) if use_bas else ""
+
+    experiment_start_raw = read_file(config.get_prompt_file_path("experiment_start", init.INIT_PROMPT_DIR))
+    experiment_start_content = prompt_fill.fill_experiment_start(
+        experiment_start_raw,
+        experiment_config,
+        use_bas=use_bas,
+        bias_text=bias_text,
+    )
     order_forecast_start_content = read_file(config.get_prompt_file_path("order_forecast_start", init.INIT_PROMPT_DIR))
-    order_forecast_end_content = read_file(config.get_prompt_file_path("order_forecast_end", init.INIT_PROMPT_DIR))
+    order_forecast_end_raw = read_file(config.get_prompt_file_path("order_forecast_end", init.INIT_PROMPT_DIR))
     order_forecast_template_content = read_file(config.get_prompt_file_path("order_forecast_template", init.INIT_PROMPT_DIR))
 
     for i in range(1, num_llms + 1):
@@ -170,9 +181,17 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         limit_price_min = max(1, int(last_price * 0.5))
         limit_price_max = int(last_price * 2.0)
 
+        order_forecast_end_content = prompt_fill.fill_order_forecast_end(
+            order_forecast_end_raw,
+            limit_price_min=limit_price_min,
+            limit_price_max=limit_price_max,
+            max_order_quantity=max_order_quantity,
+            use_bas=use_bas,
+            bias_text=bias_text,
+        )
+
         contents = {
             "experiment_start": experiment_start_content,
-            "experiment_conditions": experiment_conditions_content,
             "order_forecast_start": order_forecast_start_content,
             "order_forecast_end": order_forecast_end_content,
             "order_forecast_template": order_forecast_template_content,
@@ -184,9 +203,15 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
         }
 
         if mode == "main":
-            prompt_text = prompt.build_prompt_main(file_paths, contents, round_num, total_rounds, limit_price_min, limit_price_max)
+            prompt_text = prompt.build_prompt_main(
+                file_paths, contents, round_num, total_rounds,
+                limit_price_min, limit_price_max, max_order_quantity,
+            )
         elif mode == "prac":
-            prompt_text = prompt.build_prompt_prac(file_paths, contents, round_num, total_rounds, limit_price_min, limit_price_max)
+            prompt_text = prompt.build_prompt_prac(
+                file_paths, contents, round_num, total_rounds,
+                limit_price_min, limit_price_max, max_order_quantity,
+            )
         elif mode == "refl":
             prompt_text = prompt.build_prompt_refl(file_paths, contents)
         else:
@@ -239,8 +264,10 @@ def run_experiment_round(exp_run_dir, round_num, num_llms, total_rounds, mode, m
                 else:
                     response_json = {"raw_response": str(response_json)}
                     break
-        max_quantity = 5
-        response_json = valid.ensure_valid_orders(response_json, prompt_text, limit_price_min, limit_price_max, max_quantity, model_name=agent_model)
+        response_json = valid.ensure_valid_orders(
+            response_json, prompt_text, limit_price_min, limit_price_max,
+            max_order_quantity, model_name=agent_model,
+        )
 
         exp_output_dir = os.path.join(exp_run_dir, "output", f"r{round_num}")
         os.makedirs(exp_output_dir, exist_ok=True)

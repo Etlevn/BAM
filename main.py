@@ -136,6 +136,8 @@ if __name__ == "__main__":
     print(f"\n[config.py]Prompt Configuration ({mode_str} mode):")
     print(f"[config.py]experiment_start: {os.path.basename(experiment_start_path)}")
     print(f"[config.py]order_forecast_end: {os.path.basename(order_forecast_end_path)}")
+    if config.USE_BAS_MODE:
+        print(f"[config.py]BAS_BIAS_ID: {config.BAS_BIAS_ID}")
 
     # Initialize experiment mode based on config
     battle_manager = None

@@ -8,6 +8,10 @@ Centralizes all path configurations and experiment settings.
 # Experiment mode configuration
 EXPERIMENT_MODE = "sgl"  # "br" for Battle Royale mode, "sgl" for Single model mode
 
+# First-level batch folder under exp/ (required). Example: "1_GPT", "2_EP", "3_BR", "4_BAS".
+# Empty / whitespace raises at run start via require_exp_group().
+EXP_GROUP = "2_EP"
+
 # Single model configuration
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,  # Total number of LLM agents
@@ -65,7 +69,8 @@ EXPERIMENT_CONFIG = {
     "dividend_high": 1.0,
     "dividend_prob": 0.5,
     "practice_rounds": 3,
-    "total_rounds": 20
+    "total_rounds": 20,
+    "max_order_quantity": 5,  # Per-order share cap; used in prompts + valid.py
 }
 
 # API configuration
@@ -104,41 +109,75 @@ AUTO_JSON_FIX = {
 }
 
 # === BAS Mode Configuration ===
-USE_BAS_MODE = True  # Set to True to enable BAS mode (reads experiment_start and order_forecast_end from init/prompt/bas/)
+# When True, overlay one shared bias sentence (BAS_BIAS_ID) onto the standard prompts.
+USE_BAS_MODE = False
+BAS_BIAS_ID = "amp_1"  # Key in init/prompt/bas_biases.json (e.g. amp_1..amp_20, sup_1..sup_20)
 
 # === Prompt Files Configuration ===
-# Base prompt files configuration (used in non-BAS mode)
+# Standard templates only; BAS no longer swaps in full duplicate files.
 PROMPT_FILES = {
-    "experiment_start": "experiment_start.txt",  # Main experiment start prompt
-    "experiment_conditions": "experiment_conditions.json",  # Experiment conditions
-    "order_forecast_start": "order_forecast_start.txt",  # Order forecast start prompt
-    "order_forecast_end": "order_forecast_end.txt",  # Order forecast end prompt
-    "order_forecast_template": "order_forecast_template.json",  # Order forecast template
+    "experiment_start": "experiment_start.txt",
+    "order_forecast_start": "order_forecast_start.txt",
+    "order_forecast_end": "order_forecast_end.txt",
+    "order_forecast_template": "order_forecast_template.json",
 }
 
-# BAS mode overrides (only experiment_start and order_forecast_end differ in BAS mode)
-PROMPT_FILES_BAS = {
-    "experiment_start": "experiment_start_amp_1.txt",  # BAS mode experiment start prompt
-    "order_forecast_end": "order_forecast_end_amp_1.txt",  # BAS mode order forecast end prompt
-}
+def sanitize_model_dirname(name: str) -> str:
+    """Filesystem-safe model folder segment: strip and replace '/' with '_'."""
+    return str(name).strip().replace("/", "_")
 
-def get_exp_dir(model_name):
-    """Get experiment directory for a specific model."""
-    return os.path.join(EXP_DIR, model_name.replace("/", "_"))
+
+def require_exp_group() -> str:
+    """Return EXP_GROUP or raise if unset (first-level batch folder is mandatory)."""
+    group = str(EXP_GROUP).strip() if EXP_GROUP is not None else ""
+    if not group:
+        raise ValueError(
+            "EXP_GROUP is required in config.py (e.g. '2_EP', '3_BR', '4_BAS'). "
+            "Refusing to write experiments under a flat exp/timestamp path."
+        )
+    return group
+
+
+def get_exp_series_name() -> str:
+    """
+    Second-level series folder under exp/{EXP_GROUP}/.
+
+    - sgl: sanitized SINGLE_MODEL_CONFIG['model_name']
+    - br: sanitized custom_models names joined with ' & '
+    """
+    if EXPERIMENT_MODE == "sgl":
+        return sanitize_model_dirname(SINGLE_MODEL_CONFIG["model_name"])
+    if EXPERIMENT_MODE == "br":
+        models = BATTLE_ROYALE_CONFIG.get("custom_models") or []
+        if not models:
+            raise ValueError("Battle Royale mode requires BATTLE_ROYALE_CONFIG['custom_models']")
+        return " & ".join(sanitize_model_dirname(m["name"]) for m in models)
+    raise ValueError(f"Invalid EXPERIMENT_MODE: {EXPERIMENT_MODE}. Must be 'br' or 'sgl'")
+
+
+def get_exp_series_dir() -> str:
+    """Parent directory for new runs: exp/{EXP_GROUP}/{series}."""
+    return os.path.join(EXP_DIR, require_exp_group(), get_exp_series_name())
+
+
+def get_exp_dir(model_name=None):
+    """
+    Directory that holds timestamped runs for the current series.
+
+    If model_name is provided (legacy callers), returns exp/{EXP_GROUP}/{sanitize(model_name)}.
+    Otherwise uses get_exp_series_name() for the active mode.
+    """
+    group = require_exp_group()
+    series = sanitize_model_dirname(model_name) if model_name else get_exp_series_name()
+    return os.path.join(EXP_DIR, group, series)
+
 
 def get_log_file(exp_name):
     """Get log file path for an experiment."""
     return os.path.join(LOG_DIR, f"{exp_name}.log")
 
 def get_prompt_file_path(prompt_key, base_prompt_dir):
-    """
-    Get the full path to a prompt file based on BAS mode configuration.
-    """
-    # Get filename: use BAS override if in BAS mode and key exists in PROMPT_FILES_BAS, otherwise use base config
-    if USE_BAS_MODE and prompt_key in PROMPT_FILES_BAS:
-        filename = PROMPT_FILES_BAS[prompt_key]
-        bas_dir = os.path.join(base_prompt_dir, "bas")
-        return os.path.join(bas_dir, filename)
-    else:
-        filename = PROMPT_FILES[prompt_key]
-        return os.path.join(base_prompt_dir, filename) 
+    """Return path to a standard prompt template under base_prompt_dir."""
+    if prompt_key not in PROMPT_FILES:
+        raise KeyError(f"Unknown prompt key {prompt_key!r}; known: {sorted(PROMPT_FILES)}")
+    return os.path.join(base_prompt_dir, PROMPT_FILES[prompt_key]) 

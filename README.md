@@ -38,7 +38,7 @@ Experiment outputs, logs, and API keys are not part of the repository. Each run 
 
 ## Market design
 
-Default parameters live in `config.py` (`EXPERIMENT_CONFIG`) and in `init/prompt/experiment_conditions.json`.
+Default parameters live in `config.py` (`EXPERIMENT_CONFIG`). Prompt templates under `init/prompt/` are filled from that config at runtime.
 
 | Parameter | Default | Role |
 | --- | --- | --- |
@@ -85,25 +85,34 @@ Structured output (output/rN/*.json)
 
 ## Requirements
 
-Python 3.8 or newer.
+Python 3.12 or 3.13.
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
 The main dependencies are `edsl` (Expected Parrot), `pandas`, `numpy`, `python-dotenv`, `matplotlib`, `seaborn`, `scipy`, and `statsmodels`.
 
-Create a `.env` file in the repository root. Set the key for the API mode you select in `config.py`. Do not commit this file.
+Copy `.env.example` to `.env` in the repository root, then set the key for the API mode you select in `config.py`. Do not commit `.env`.
 
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
-EXPECTED_PARROT_API_KEY=your_expected_parrot_api_key_here
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
+cp .env.example .env
 ```
 
 ## Configuration
 
 All experiment settings are in `config.py`.
+
+### Experiment output path
+
+New runs are written under:
+
+```text
+exp/{EXP_GROUP}/{series}/{YYYYMMDD_HHMMSS}/
+```
+
+- `EXP_GROUP` is required in `config.py` (for example `2_EP` or `3_BR`). An empty value aborts startup.
+- `series` is automatic: single-model uses the sanitized `model_name` (`/` → `_`); battle-royale joins sanitized model names with ` & `.
 
 ### Market composition
 
@@ -122,7 +131,7 @@ All experiment settings are in `config.py`.
 
 ### Prompts and BAS mode
 
-Shared prompt files live in `init/prompt/`. When `USE_BAS_MODE` is `True`, `experiment_start` and `order_forecast_end` are taken from `init/prompt/bas/` instead. The active filenames are `PROMPT_FILES_BAS` in `config.py`.
+Shared prompt files live in `init/prompt/`. When `USE_BAS_MODE` is `True`, a single bias sentence from `init/prompt/bas_biases.json` (selected by `BAS_BIAS_ID`) is overlaid onto the standard templates.
 
 The `bas/` directory contains two families, `amp` (amplify) and `sup` (suppress), numbered 1 through 20. Each number is a pair:
 

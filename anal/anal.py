@@ -31,7 +31,6 @@ from typing import List, Dict, Any
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 def load_config(config_path: str | None) -> Dict[str, Any]:
@@ -68,9 +67,30 @@ def read_market_prices(mkt_csv: Path) -> List[float]:
     return prices
 
 
-def compute_pv_variance(last_input_dir: Path) -> float | None:
+def read_market_prices_by_round(mkt_csv: Path) -> Dict[int, float]:
+    prices_by_round: Dict[int, float] = {}
+    with open(mkt_csv, 'r', encoding='utf-8') as f:
+        for line in f:
+            s = line.strip()
+            if not s or s.lower().startswith('round'):
+                continue
+            parts = s.split(',')
+            if len(parts) < 2:
+                continue
+            try:
+                round_num = int(float(parts[0]))
+                prices_by_round[round_num] = float(parts[1])
+            except Exception:
+                continue
+    return prices_by_round
+
+
+def portfolio_values_in_round(round_input_dir: Path) -> List[float]:
+    """Portfolio value = current cash + expected redemption (buyback wealth)."""
     pv_list: List[float] = []
-    for file in last_input_dir.iterdir():
+    if not round_input_dir.is_dir():
+        return pv_list
+    for file in round_input_dir.iterdir():
         if not file.name.endswith('_portfolio.txt') or not file.is_file():
             continue
         try:
@@ -85,9 +105,30 @@ def compute_pv_variance(last_input_dir: Path) -> float | None:
                 pv_list.append(cash + redemp)
         except Exception:
             continue
+    return pv_list
+
+
+def compute_pv_variance(round_input_dir: Path) -> float | None:
+    """Within-period cross-agent PV variance for one round (legacy helper)."""
+    pv_list = portfolio_values_in_round(round_input_dir)
     if len(pv_list) == 0:
         return None
     return float(np.var(pv_list))
+
+
+def compute_mean_pv_variance(input_dir: Path, formal_rounds: range | None = None) -> float | None:
+    """Paper PV Var.: average over rounds of within-period cross-agent PV variance."""
+    if formal_rounds is None:
+        formal_rounds = range(1, 21)
+    period_vars: List[float] = []
+    for r in formal_rounds:
+        round_dir = input_dir / f'r{r}'
+        v = compute_pv_variance(round_dir)
+        if v is not None:
+            period_vars.append(v)
+    if not period_vars:
+        return None
+    return float(np.mean(period_vars))
 
 
 def find_last_input_round(input_dir: Path) -> Path | None:
@@ -107,6 +148,12 @@ def find_last_input_round(input_dir: Path) -> Path | None:
 
 
 def analyze(base_dir: Path, fundamental_value: float) -> pd.DataFrame:
+    """Compute paper-aligned MSE(FV) and PV Variance per experiment."""
+    from research.paper_v5.anal_metrics import (
+        amplitude_max_minus_fv,
+        mse_fv_formal_rounds,
+    )
+
     results: List[Dict[str, Any]] = []
 
     for exp_name in sorted(os.listdir(base_dir)):
@@ -117,6 +164,7 @@ def analyze(base_dir: Path, fundamental_value: float) -> pd.DataFrame:
         mkt_path = exp_path / 'market' / 'mkt.csv'
         try:
             prices = read_market_prices(mkt_path)
+            prices_by_round = read_market_prices_by_round(mkt_path)
         except Exception as e:
             print(f"[WARNING] Failed to read mkt.csv for {exp_name}: {e}")
             continue
@@ -127,16 +175,18 @@ def analyze(base_dir: Path, fundamental_value: float) -> pd.DataFrame:
             print(f"[SKIPPED] {exp_name} rounds={actual_rounds} (<20)")
             continue
 
-        mse = np.mean([(p - fundamental_value) ** 2 for p in prices]) if prices else None
-        amplitude = (max(prices) - fundamental_value) if prices else None
+        # Paper MSE(FV): formal rounds 1..20 only (exclude initial round 0).
+        formal = list(range(1, min(actual_rounds, 20) + 1))
+        mse = mse_fv_formal_rounds(prices_by_round, fundamental_value, formal_rounds=formal)
+        formal_prices = [prices_by_round[r] for r in formal if r in prices_by_round]
+        amplitude = amplitude_max_minus_fv(formal_prices, fundamental_value) if formal_prices else None
 
         input_dir = exp_path / 'input'
         pv_var: float | None
         try:
-            last_input = find_last_input_round(input_dir)
-            if last_input is None:
-                raise ValueError('No input round folders found.')
-            pv_var = compute_pv_variance(last_input)
+            pv_var = compute_mean_pv_variance(input_dir, formal_rounds=range(1, 21))
+            if pv_var is None:
+                raise ValueError('No portfolio values found in formal input rounds.')
         except Exception as e:
             print(f"[WARNING] Failed to compute PV variance for {exp_name}: {e}")
             pv_var = None
@@ -155,6 +205,8 @@ def analyze(base_dir: Path, fundamental_value: float) -> pd.DataFrame:
 
 
 def plot_all(base_dir: Path, df: pd.DataFrame, fundamental_value: float) -> None:
+    import matplotlib.pyplot as plt
+
     plot_dir = base_dir / 'plots'
     plot_dir.mkdir(parents=True, exist_ok=True)
 

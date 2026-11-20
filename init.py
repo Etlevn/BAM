@@ -32,7 +32,7 @@ def initialize_experiment(WORK_DIR):
     """
     Initializes the experiment environment by:
     - Changing working directory
-    - Creating timestamped exp/ folder with input/output/market subfolders
+    - Creating exp/{EXP_GROUP}/{series}/{timestamp}/ with input/output/market
     - Setting global path variables (INIT_PROMPT_DIR, etc.)
     - Initializing mkt.csv with stock_value from configuration
 
@@ -48,13 +48,17 @@ def initialize_experiment(WORK_DIR):
     INIT_PROMPT_DIR = os.path.join(INIT_DIR, "prompt")
     INIT_R0_DIR = os.path.join(INIT_DIR, "r0")
 
-    # Create exp/ folder if it doesn't exist
+    # Create exp/{EXP_GROUP}/{series}/{timestamp}/
     EXP_DIR = os.path.join(WORK_DIR, "exp")
     os.makedirs(EXP_DIR, exist_ok=True)
 
-    # Create timestamped experiment run folder
+    group = config.require_exp_group()
+    series = config.get_exp_series_name()
+    parent = os.path.join(EXP_DIR, group, series)
+    os.makedirs(parent, exist_ok=True)
+
     time_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    exp_run_dir = os.path.join(EXP_DIR, time_stamp)
+    exp_run_dir = os.path.join(parent, time_stamp)
 
     # Define subfolders
     EXP_INPUT_DIR = os.path.join(exp_run_dir, "input")
@@ -73,6 +77,7 @@ def initialize_experiment(WORK_DIR):
     mkt_csv_path = os.path.join(EXP_MARKET_DIR, "mkt.csv")
     pd.DataFrame({"round": [0], "mkt": [stock_value], "vol": [0]}).to_csv(mkt_csv_path, index=False)
 
+    print(f"[init.py] Experiment run directory: {exp_run_dir}")
     print(f"[init.py] Market price initialized at {stock_value} and saved to {mkt_csv_path}")
 
     return exp_run_dir

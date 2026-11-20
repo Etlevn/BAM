@@ -5,7 +5,7 @@ import init
 def prepare_round_zero(num_llms, total_rounds, mode="main"):
     """
     Generates initial market.txt and portfolio.txt for each LLM agent in round 0.
-    Uses experiment conditions from experiment_conditions.json.
+    Uses experiment conditions from config.EXPERIMENT_CONFIG.
     Output files are saved in init/r0/
     """
 
