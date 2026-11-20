@@ -24,7 +24,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # Experiment mode
 # ============================================================
 
-EXPERIMENT_MODE = "sgl"  # "br" or "sgl"
+EXPERIMENT_MODE = "br"  # "br" or "sgl"
 
 # First-level batch folder under exp/ (required). Example: "1_GPT", "2_EP", "3_BR", "4_BAS".
 EXP_GROUP = "TEST"
@@ -39,12 +39,12 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "claude-3-7-sonnet-20250219",
+            "name": "gpt-5.4-mini",
             "count": 10,
             "service_name": "",
         },
         {
-            "name": "gemini-2.0-flash-001",
+            "name": "gpt-6-luna",
             "count": 10,
             "service_name": "",
         },

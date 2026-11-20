@@ -7,7 +7,8 @@ import pandas as pd
 # First columns for rx / mkt / output (exact spelling).
 LEADING_COLS = [
     "group",
-    "simulation_index",
+    "series",
+    "session",
     "market_type",
     "bas",
     "round",

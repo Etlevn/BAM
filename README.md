@@ -141,8 +141,6 @@ Set `USE_BAS_MODE` to `False` to use the standard templates named in `PROMPT_FIL
 - `DEBUG_CONFIG["save_raw_responses"]` stores the raw model text before parsing.
 - `batch.py` sets `NUM_RUNS`, the number of full experiments to launch in sequence.
 
-Analysis and integration scripts read their own JSON configs. Replace the absolute paths in those files with the directory that holds your runs before using them.
-
 ## Running an experiment
 
 From the repository root:
@@ -179,7 +177,7 @@ A run directory contains:
 - `exp/SGL/_SGL/SGL_mkt.csv` — portfolio / market history / forecasts from `input/.../*_market.txt`
 - `exp/SGL/_SGL/SGL_output.csv` — obs / plan / insight from `output/r*/llm_*.json`
 
-`classify_group_sessions` (used by `integ.py`) does both in one pass: `status=complete` formal sessions are merged; `status=running` (and sessions with no config yet) are left in place; other non-complete sessions are moved under `exp/<GROUP>/<series>/_<NONCOMPLETE_FOLDER>/<session>/` (default `_incomplete`, set in `integ.py`). Intermediate per-session integ CSVs are not written.
+`classify_group_sessions` in `src/integ/session.py` (used by `integ.py`) does both in one pass: `status=complete` formal sessions are merged; `status=running` (and sessions with no config yet) are left in place; other non-complete sessions are moved under `exp/<GROUP>/<series>/_incomplete/<session>/`. Intermediate per-session integ CSVs are not written.
 
 ```bash
 python integ.py
@@ -187,17 +185,16 @@ python integ.py
 
 ## Analysis
 
-The analysis reads the recorded chain after a run. `anal/` summarizes the market path. Point `anal/anal_config.json` at a directory of runs and set `fundamental_value` (14 under the default design).
+`anal.py` (backed by `src/analysis/`) mirrors `integ.py`: edit `GROUPS` at the top, then run from the repo root. It reuses `classify_group_sessions` (complete formal sessions only; running/no-config left in place; other non-complete moved to `<series>/_incomplete/`). Fundamental value and total rounds come from `config.EXPERIMENT_CONFIG` (`stock_value`, `total_rounds`). Outputs land under `exp/<GROUP>/_<GROUP>/`:
+
+- `<GROUP>_market.csv` — session-level MSE(FV), amplitude, portfolio-value variance
+- `<GROUP>_market_robust.csv` — long-form summary by `group × series × Metric` (mean / std / CV / 95% CI)
+- `<GROUP>_rational.csv` — session-level forecast rationality (MSE, error distribution, unbiasedness, AR(1)/DW)
+- `<GROUP>_rational_robust.csv` — same robust long form for rationality metrics
 
 ```bash
-python anal/anal.py --config anal/anal_config.json
-python anal/rat.py --config anal/anal_config.json
-python anal/rob.py --config anal/anal_config.json
+python anal.py
 ```
-
-- `anal.py` writes rounds, mean squared deviation of price from fundamental value, price amplitude, and cross-trader portfolio-value variance, plus price–volume plots.
-- `rat.py` measures forecast error against realized prices: MSE, the error distribution, an unbiasedness t-test, and autocorrelation.
-- `rob.py` reads `anal.csv` and reports the mean, standard deviation, coefficient of variation, and 95% confidence interval for MSE, amplitude, and portfolio-value variance.
 
 `nlp/` reads integrated model output and asks a model to code plans and insights against a fixed mechanism list in `nlp/nlp_config.json` (including extrapolation versus anchoring, diagnostic expectations, herding, overconfidence, loss aversion, and others). `nlp_merge.py` combines result files. `nlp_miss.py` lists rows whose plan or insight JSON is missing.
 
@@ -211,15 +208,16 @@ python nlp/nlp_main.py --input path/to/sgl_output.csv --output path/to/nlp_out -
 config.py                 parameters only
 main.py                   entry → src.runtime.runner
 integ.py                  entry → src.integ (group CSV tables)
+anal.py                   entry → src.analysis (market + rationality)
 src/market/               clearing, order book prep
 src/agents/               trading calls, validate, battle
 src/portfolio/            settle, dividend, prepare
 src/prompts/              build, fill
 src/runtime/              setup, paths, runner, batch
 src/integ/                orders, snapshots, outputs aggregation
+src/analysis/             market metrics, rationality, robustness
 src/support/              utils, repair, collect
 prompt/                   standard prompts (+ bas_biases.json)
-anal/                     price, forecast, and robustness summaries
 nlp/                      mechanism coding of plans and insights
 ```
 

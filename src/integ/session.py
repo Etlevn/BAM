@@ -139,12 +139,8 @@ def is_active_session(session_dir: Path) -> bool:
     return status == "running"
 
 
-def normalize_underscore_folder(name: str) -> str:
-    """Ensure a custom folder name is stored as _<name> under the series."""
-    raw = str(name or "").strip()
-    if not raw:
-        return ""
-    return raw if raw.startswith("_") else f"_{raw}"
+# Non-complete sessions are relocated under this fixed series-level bin.
+_NONCOMPLETE_BIN = "_incomplete"
 
 
 def _unique_dest(dest: Path) -> Path:
@@ -158,21 +154,19 @@ def _unique_dest(dest: Path) -> Path:
         i += 1
 
 
-def classify_group_sessions(
-    group_dir: Path,
-    *,
-    noncomplete_folder: str = "_incomplete",
-) -> ClassifyResult:
+def classify_group_sessions(group_dir: Path) -> ClassifyResult:
     """
     Single pass over exp/<GROUP>/<series>/<session>/:
 
     - status == complete and formal → included for integ merge
     - status == running (or no config yet) → left in place (not merged, not moved)
     - other non-complete → moved under
-      exp/<GROUP>/<series>/_<noncomplete_folder>/<session>/
+      exp/<GROUP>/<series>/_incomplete/<session>/
 
     Folders starting with '_' (result dirs, incomplete bins, etc.) are not scanned
     as series.
+
+    Callable from integ and other callers; bin name is fixed internally.
     """
     complete: list[SessionMeta] = []
     moved: list[tuple[Path, Path]] = []
@@ -182,12 +176,12 @@ def classify_group_sessions(
         return ClassifyResult(complete, moved, skipped_moves)
 
     group_name = group_dir.name
-    bin_name = normalize_underscore_folder(noncomplete_folder)
+    bin_name = _NONCOMPLETE_BIN
 
     for series_dir in sorted(group_dir.iterdir()):
         if not series_dir.is_dir() or should_skip_name(series_dir.name):
             continue
-        series_bin = (series_dir / bin_name) if bin_name else None
+        series_bin = series_dir / bin_name
         for session_dir in sorted(series_dir.iterdir()):
             if not session_dir.is_dir() or not _SESSION_RE.match(session_dir.name):
                 continue
@@ -203,42 +197,24 @@ def classify_group_sessions(
 
             # Do not touch live runs.
             if is_active_session(session_dir):
-                label = status or "no-config"
-                print(
-                    f"Skip active session ({label}): "
-                    f"{series_dir.name}/{session_dir.name}"
-                )
                 continue
 
             # Other non-complete: incomplete / failed / interrupted / …
-            if series_bin is None:
-                continue
             dest = series_bin / session_dir.name
             try:
                 series_bin.mkdir(parents=True, exist_ok=True)
                 dest = _unique_dest(dest)
                 shutil.move(str(session_dir), str(dest))
                 moved.append((session_dir, dest))
-                print(
-                    f"Moved non-complete ({status}) → {dest.relative_to(group_dir)} "
-                    f"(from {series_dir.name}/{session_dir.name})"
-                )
             except Exception as exc:
                 skipped_moves.append((session_dir, str(exc)))
-                print(f"Warning: failed to move {session_dir}: {exc}")
 
     return ClassifyResult(complete=complete, moved=moved, skipped_moves=skipped_moves)
 
 
-def iter_formal_sessions(
-    group_dir: Path,
-    *,
-    noncomplete_folder: str = "_incomplete",
-) -> Iterator[SessionMeta]:
+def iter_formal_sessions(group_dir: Path) -> Iterator[SessionMeta]:
     """Compatibility wrapper around classify_group_sessions."""
-    yield from classify_group_sessions(
-        group_dir, noncomplete_folder=noncomplete_folder
-    ).complete
+    yield from classify_group_sessions(group_dir).complete
 
 
 def input_round_dirs(session_dir: Path) -> list[int]:

@@ -145,7 +145,8 @@ def build_snapshots(meta: SessionMeta) -> pd.DataFrame:
             records.append(
                 {
                     "group": meta.group,
-                    "simulation_index": meta.simulation_index,
+                    "series": meta.series,
+                    "session": meta.simulation_index,
                     "bas": meta.bas,
                     "market_type": meta.market_type,
                     "round": rnum,

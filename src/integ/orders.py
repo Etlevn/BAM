@@ -21,14 +21,14 @@ def build_orders(meta: SessionMeta) -> pd.DataFrame:
             continue
         try:
             df = pd.read_csv(csv_file)
-        except Exception as exc:
-            print(f"Warning: failed to read {csv_file}: {exc}")
+        except Exception:
             continue
         if df.empty:
             continue
         out = df.copy()
         out["group"] = meta.group
-        out["simulation_index"] = meta.simulation_index
+        out["series"] = meta.series
+        out["session"] = meta.simulation_index
         out["bas"] = meta.bas
         out["market_type"] = meta.market_type
         out["round"] = round_num

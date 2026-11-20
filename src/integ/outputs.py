@@ -17,8 +17,7 @@ _LLM_JSON_RE = re.compile(r"llm_(\d+)_r\d+\.json")
 def _parse_json_file(json_file: Path) -> dict[str, str]:
     try:
         data = json.loads(json_file.read_text(encoding="utf-8"))
-    except Exception as exc:
-        print(f"Failed to parse JSON {json_file}: {exc}")
+    except Exception:
         return {"obs": "", "plan": "", "insight": ""}
 
     obs = data.get("observations_and_thoughts", "") or ""
@@ -51,7 +50,8 @@ def build_outputs(meta: SessionMeta) -> pd.DataFrame:
             rows.append(
                 {
                     "group": meta.group,
-                    "simulation_index": meta.simulation_index,
+                    "series": meta.series,
+                    "session": meta.simulation_index,
                     "bas": meta.bas,
                     "market_type": meta.market_type,
                     "round": round_num,
