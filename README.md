@@ -196,10 +196,16 @@ python integ.py
 python anal.py
 ```
 
-`nlp/` reads integrated model output and asks a model to code plans and insights against a fixed mechanism list in `nlp/nlp_config.json` (including extrapolation versus anchoring, diagnostic expectations, herding, overconfidence, loss aversion, and others). `nlp_merge.py` combines result files. `nlp_miss.py` lists rows whose plan or insight JSON is missing.
+## NLP
+
+`nlp.py` (backed by `src/nlp/`) mirrors `integ.py` / `anal.py`: set `GROUPS` and `RUN_CODE` / `RUN_POST` at the top. API/model/workers/mechanism list live in the same file. Prompt template is `prompt/nlp_prmt.txt`. For each group it reads `exp/<GROUP>/_<GROUP>/<GROUP>_output.csv` and writes:
+
+- `nlp/*.json` — per-row plan/insight mechanism coding
+- `<GROUP>_output_nlp.csv` — output table with `plan_nlp` / `insight_nlp` columns
+- `<GROUP>_output_miss.csv` — rows missing plan and/or insight JSON
 
 ```bash
-python nlp/nlp_main.py --input path/to/sgl_output.csv --output path/to/nlp_out --config nlp/nlp_config.json
+python nlp.py
 ```
 
 ## Repository layout
@@ -209,6 +215,7 @@ config.py                 parameters only
 main.py                   entry → src.runtime.runner
 integ.py                  entry → src.integ (group CSV tables)
 anal.py                   entry → src.analysis (market + rationality)
+nlp.py                    entry → src.nlp (mechanism coding / merge / miss)
 src/market/               clearing, order book prep
 src/agents/               trading calls, validate, battle
 src/portfolio/            settle, dividend, prepare
@@ -216,9 +223,9 @@ src/prompts/              build, fill
 src/runtime/              setup, paths, runner, batch
 src/integ/                orders, snapshots, outputs aggregation
 src/analysis/             market metrics, rationality, robustness
+src/nlp/                  mechanism coding, merge, miss
 src/support/              utils, repair, collect
-prompt/                   standard prompts (+ bas_biases.json)
-nlp/                      mechanism coding of plans and insights
+prompt/                   trading + NLP prompts (+ bas_biases.json)
 ```
 
 `exp/`, `log/`, and `.env` are gitignored. `prompt/` holds read-only templates at the repo root. Per-run writable state (including `input/r0/` and `prac/`) lives only under each session directory in `exp/`.

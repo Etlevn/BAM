@@ -7,7 +7,7 @@ from src.analysis.runner import run_groups
 # ============================================================
 
 # First-level folder names under exp/ (e.g. "SGL", "BR").
-GROUPS = ["SGL", "BR", "BAS"]    # ["SGL", "BR", "BAS"]
+GROUPS = ["TEST"]    # ["SGL", "BR", "BAS"]
 
 RUN_MARKET = True              # → <GROUP>_market.csv
 RUN_MARKET_ROBUST = True       # → <GROUP>_market_robust.csv (requires RUN_MARKET)

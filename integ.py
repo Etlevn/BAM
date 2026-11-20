@@ -7,7 +7,7 @@ from src.integ.runner import run_groups
 # ============================================================
 
 # First-level folder names under exp/ (e.g. "SGL", "BR").
-GROUPS = ["SGL", "BR", "BAS"]    # ["SGL", "BR", "BAS"] 
+GROUPS = ["TEST"]    # ["SGL", "BR", "BAS"] 
 
 RUN_ORDERS = True      # → <GROUP>_rx.csv
 RUN_SNAPSHOTS = True   # → <GROUP>_mkt.csv
