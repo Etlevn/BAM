@@ -24,14 +24,14 @@ os.makedirs(LOG_DIR, exist_ok=True)
 # Experiment mode
 # ============================================================
 
-EXPERIMENT_MODE = "br"  # "br" or "sgl"
+EXPERIMENT_MODE = "sgl"  # "br" or "sgl"
 
 # First-level batch folder under exp/ (required). Example: "1_GPT", "2_EP", "3_BR", "4_BAS".
 EXP_GROUP = "TEST"
 
 SINGLE_MODEL_CONFIG = {
     "num_llms": 20,
-    "model_name": "gpt-5.4-mini",
+    "model_name": "gpt-6-luna",
     "service_name": "",
 }
 
@@ -39,7 +39,7 @@ BATTLE_ROYALE_CONFIG = {
     "assignment_strategy": "sequential",  # "random", "sequential", "balanced"
     "custom_models": [
         {
-            "name": "gpt-5.4-mini",
+            "name": "gpt-5-nano",
             "count": 10,
             "service_name": "",
         },
@@ -95,6 +95,14 @@ AUTO_JSON_FIX = {
 
 USE_BAS_MODE = False
 BAS_BIAS_ID = "amp_01"
+
+# Optional per-process overrides (used by batch RUN_ALL_BAS children).
+_bas_mode_env = os.getenv("BAM_USE_BAS_MODE")
+if _bas_mode_env is not None and _bas_mode_env.strip() != "":
+    USE_BAS_MODE = _bas_mode_env.strip().lower() in {"1", "true", "yes", "on"}
+_bas_bias_env = os.getenv("BAM_BAS_BIAS_ID")
+if _bas_bias_env is not None and _bas_bias_env.strip() != "":
+    BAS_BIAS_ID = _bas_bias_env.strip()
 
 PROMPT_FILES = {
     "experiment_start": "experiment_start.txt",
