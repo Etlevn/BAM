@@ -1,4 +1,4 @@
-"""Entry: aggregate formal sessions under selected exp/ groups into _<GROUP>/."""
+"""Entry: aggregate formal sessions under selected exp/ groups into _<GROUP>/integrate/."""
 
 from src.integ.runner import run_groups
 
@@ -6,12 +6,12 @@ from src.integ.runner import run_groups
 # Config
 # ============================================================
 
-# First-level folder names under exp/ (e.g. "SGL", "BR").
-GROUPS = ["TEST"]    # ["SGL", "BR", "BAS"] 
+# First-level folder names under exp/ 
+GROUPS = ["TEST"]      # ["SGL", "BR", "BAS"] 
 
-RUN_ORDERS = True      # → <GROUP>_rx.csv
-RUN_SNAPSHOTS = True   # → <GROUP>_mkt.csv
-RUN_OUTPUTS = True     # → <GROUP>_output.csv
+RUN_ORDERS = True      # → integrate/<GROUP>_rx.csv
+RUN_SNAPSHOTS = True   # → integrate/<GROUP>_mkt.csv
+RUN_OUTPUTS = True     # → integrate/<GROUP>_output.csv
 
 # ============================================================
 

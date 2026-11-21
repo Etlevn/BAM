@@ -1,4 +1,4 @@
-"""Cross-session robustness summaries grouped by series (long format)."""
+"""Cross-session robustness summaries (long format)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,17 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+# Preferred stratification (mixed groups like TEST).
+_ID_KEYS = ("group", "mode", "bas", "series")
+
+
+def _strata_keys(df: pd.DataFrame) -> list[str]:
+    """Use full identity key when present; else legacy group×series."""
+    keys = [k for k in _ID_KEYS if k in df.columns]
+    if "group" in keys and "series" in keys and len(keys) >= 2:
+        return keys
+    return [k for k in ("group", "series") if k in df.columns]
 
 
 def summarize_by_series(
@@ -17,35 +28,49 @@ def summarize_by_series(
     round_cv: int = 3,
 ) -> pd.DataFrame:
     """
-    Long table: one row per (group, series, Metric) with mean/std/CV/95% CI.
+    Long table: one row per (group [, mode, bas], series, Metric)
+    with mean/std/CV/95% CI.
     """
+    empty_cols = [
+        "group",
+        "mode",
+        "bas",
+        "series",
+        "Metric",
+        "Mean",
+        "StdDev",
+        "CV",
+        "95% CI Lower",
+        "95% CI Upper",
+        "CI Width / Mean",
+        "n",
+    ]
     if df.empty:
-        return pd.DataFrame(
-            columns=[
-                "group",
-                "series",
-                "Metric",
-                "Mean",
-                "StdDev",
-                "CV",
-                "95% CI Lower",
-                "95% CI Upper",
-                "CI Width / Mean",
-                "n",
-            ]
-        )
+        return pd.DataFrame(columns=empty_cols)
+
+    keys = _strata_keys(df)
+    if not keys:
+        return pd.DataFrame(columns=empty_cols)
 
     rows: list[dict] = []
-    grouped = df.groupby(["group", "series"], dropna=False, sort=True)
-    for (group, series), part in grouped:
+    grouped = df.groupby(keys, dropna=False, sort=True)
+    for key_vals, part in grouped:
+        if not isinstance(key_vals, tuple):
+            key_vals = (key_vals,)
+        id_map = dict(zip(keys, key_vals))
+        base = {
+            "group": id_map.get("group"),
+            "mode": id_map.get("mode"),
+            "bas": id_map.get("bas"),
+            "series": id_map.get("series"),
+        }
         for metric in metrics:
             values = pd.to_numeric(part.get(metric), errors="coerce").dropna()
             n = int(len(values))
             if n == 0:
                 rows.append(
                     {
-                        "group": group,
-                        "series": series,
+                        **base,
                         "Metric": metric,
                         "Mean": np.nan,
                         "StdDev": np.nan,
@@ -60,7 +85,6 @@ def summarize_by_series(
             mean = float(values.mean())
             std = float(values.std(ddof=1)) if n > 1 else 0.0
             cv = (std / mean) if mean != 0 else np.nan
-            # t.interval warns when scale (SEM) is 0 or non-finite (identical values).
             if n <= 1 or not np.isfinite(std) or std == 0.0:
                 ci_low = ci_up = mean
             else:
@@ -90,8 +114,7 @@ def summarize_by_series(
             )
             rows.append(
                 {
-                    "group": group,
-                    "series": series,
+                    **base,
                     "Metric": metric,
                     "Mean": round(mean, round_mean),
                     "StdDev": round(std, round_mean) if np.isfinite(std) else np.nan,
@@ -108,4 +131,8 @@ def summarize_by_series(
                     "n": n,
                 }
             )
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    # Stable column order even when legacy inputs omit mode/bas.
+    front = [c for c in empty_cols if c in out.columns]
+    rest = [c for c in out.columns if c not in front]
+    return out.loc[:, front + rest]

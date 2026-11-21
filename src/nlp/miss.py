@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.nlp.utils import session_id
+from src.nlp.utils import filter_sgl_rows, session_id
 from src.support.progress import track
 
 
@@ -14,12 +14,14 @@ def check_missing(input_csv: Path, nlp_dir: Path, output_csv: Path) -> Path | No
     if not input_csv.is_file():
         raise FileNotFoundError(f"Input file not found: {input_csv}")
 
-    # keep_default_na=False: preserve integ's literal "null" in bas (and similar).
+    # keep_default_na=False: preserve integ's literal "nan" in bas (and similar).
     df = pd.read_csv(input_csv, dtype=str, keep_default_na=False)
+    df = filter_sgl_rows(df, label="nlp miss")
     if not nlp_dir.is_dir():
         print(f"[miss] NLP dir missing ({nlp_dir}); treating all rows as missing")
-        output_csv.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(output_csv, index=False, encoding="utf-8")
+        from src.integ.paths import write_table_csv
+
+        write_table_csv(df, output_csv)
         print(f"[miss] Saved {len(df)} rows → {output_csv}")
         return output_csv
 
@@ -49,11 +51,14 @@ def check_missing(input_csv: Path, nlp_dir: Path, output_csv: Path) -> Path | No
     )
 
     missing_indices = sorted(set(missing_plan + missing_insight))
-    if not missing_indices:
-        print("[miss] No missing data")
-        return None
+    from src.integ.paths import write_table_csv
 
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-    df.iloc[missing_indices].to_csv(output_csv, index=False, encoding="utf-8")
+    if not missing_indices:
+        # Overwrite so a prior miss file cannot linger after a successful refill/post.
+        write_table_csv(df.iloc[0:0].copy(), output_csv)
+        print(f"[miss] No missing data; wrote empty → {output_csv}")
+        return output_csv
+
+    write_table_csv(df.iloc[missing_indices], output_csv)
     print(f"[miss] Saved {len(missing_indices)} rows → {output_csv}")
     return output_csv

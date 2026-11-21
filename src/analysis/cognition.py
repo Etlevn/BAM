@@ -1,4 +1,4 @@
-"""Agent–round cognition panel for Tables 7–8 (stated action → beliefs / trading)."""
+"""Agent–round cognition panel: stated action → beliefs / next-period trading."""
 
 from __future__ import annotations
 
@@ -14,7 +14,8 @@ from src.analysis.behavior import (
     _horizon_expected_returns,
 )
 
-_KEY = ["group", "series", "session", "llm"]
+# Match behavior._KEY so order merges don't invent mode_x/bas_x.
+_KEY = ["group", "mode", "bas", "series", "session", "llm"]
 
 # Default Stated Action lexicon (B1). Whole-word, case-insensitive.
 # Excluded by design: order(s), bid(s), offer(s), long/short, hold*, trade*, fill*, execute*.
@@ -115,12 +116,12 @@ def build_cognition_panel(
     total_rounds: int = 20,
 ) -> pd.DataFrame:
     """
-    Build agent–round panel for Tables 7–8.
+    Build agent–round panel for stated-action vs expectation / buy links.
 
     Requires integ ``_mkt``, ``_rx``, and ``_output`` (no fallback).
 
     Horizons follow Methods h in {0,2,5,10} as exp_ret_h*.
-    Paper Table 7 labels R_{t+1} but elicitation has no delta=1; alias
+    Elicitation has no delta=1; long horizon alias is
     exp_ret_t10 = exp_ret_h10 only. See docs/paper/definition_audit.md.
     """
     mkt = _coerce_mkt(mkt)
@@ -175,7 +176,7 @@ def build_cognition_panel(
     exp_df = pd.DataFrame(exp_rows)
     panel = pd.concat([panel.reset_index(drop=True), exp_df], axis=1)
 
-    # Table 7 long horizon only (Methods h=10). No silent t+1↔h2 alias.
+    # Long horizon only (Methods h=10). No silent t+1↔h2 alias.
     panel["exp_ret_t10"] = panel["exp_ret_h10"]
 
     # Drop bulky raw text from the analysis CSV.
@@ -183,10 +184,10 @@ def build_cognition_panel(
 
     front = [
         "group",
+        "mode",
+        "bas",
         "series",
         "session",
-        "market_type",
-        "bas",
         "round",
         "llm",
         "llm_type",
@@ -216,9 +217,11 @@ def build_cognition_panel(
 def load_cognition_inputs(
     out_dir: Path, group_name: str
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    mkt_path = out_dir / f"{group_name}_mkt.csv"
-    rx_path = out_dir / f"{group_name}_rx.csv"
-    output_path = out_dir / f"{group_name}_output.csv"
+    from src.integ.paths import integ_csv
+
+    mkt_path = integ_csv(out_dir, group_name, "mkt")
+    rx_path = integ_csv(out_dir, group_name, "rx")
+    output_path = integ_csv(out_dir, group_name, "output")
     if not mkt_path.is_file():
         raise FileNotFoundError(
             f"RUN_COGNITION requires {mkt_path}; run integ first (no fallback)."
@@ -231,4 +234,10 @@ def load_cognition_inputs(
         raise FileNotFoundError(
             f"RUN_COGNITION requires {output_path}; run integ first (no fallback)."
         )
-    return pd.read_csv(mkt_path), pd.read_csv(rx_path), pd.read_csv(output_path)
+    from src.integ.paths import read_table_csv
+
+    return (
+        read_table_csv(mkt_path),
+        read_table_csv(rx_path),
+        read_table_csv(output_path),
+    )

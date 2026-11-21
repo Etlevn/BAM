@@ -40,11 +40,11 @@ def build_evaluation_prompt(
 ) -> str:
     lm_id = agent_info.get("llm", "N/A")
     round_num = agent_info.get("round", "N/A")
-    market_type = agent_info.get("market_type", "N/A")
+    mode = agent_info.get("mode", "N/A")
 
     template_str = system_prompt.replace("{LM_id}", "${LM_id}")
     template_str = template_str.replace("{round}", "${round}")
-    template_str = template_str.replace("{market_type}", "${market_type}")
+    template_str = template_str.replace("{mode}", "${mode}")
     template_str = template_str.replace("{price_info}", "${price_info}")
     template_str = template_str.replace("{recent_returns}", "${recent_returns}")
     template_str = template_str.replace("{plan_text}", "${plan_text}")
@@ -54,7 +54,7 @@ def build_evaluation_prompt(
     return template.safe_substitute(
         LM_id=lm_id,
         round=round_num,
-        market_type=market_type,
+        mode=mode,
         price_info="N/A",
         recent_returns="N/A",
         plan_text=target_text if evaluation_target == "plan" else "N/A",
@@ -207,3 +207,45 @@ def required_columns(df_columns: list[str] | Any) -> list[str]:
         if col not in cols:
             missing.append(col)
     return missing
+
+
+def filter_sgl_rows(df: Any, *, label: str = "nlp") -> Any:
+    """
+    Keep single-model non-BAS NLP scope: ``mode == sgl`` and ``bas == nan``.
+
+    Legacy ``market_type`` accepted for mode. Missing ``bas`` treated as ``nan``.
+    Empty / ``null`` / ``none`` bas normalized to literal ``nan``.
+    """
+    import pandas as pd
+
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("filter_sgl_rows expects a DataFrame")
+    out = df.copy()
+    mode_col = (
+        "mode"
+        if "mode" in out.columns
+        else ("market_type" if "market_type" in out.columns else None)
+    )
+    if mode_col is None:
+        raise ValueError(
+            f"{label}: need mode or market_type to restrict NLP to sgl rows"
+        )
+    before = len(out)
+    mode_ok = out[mode_col].astype(str).str.strip().str.lower().eq("sgl")
+    if "bas" in out.columns:
+        bas = out["bas"].astype(str).str.strip()
+        bas_norm = bas.where(~bas.str.lower().isin({"", "null", "none", "nan"}), "nan")
+        out["bas"] = bas_norm
+        bas_ok = bas_norm.eq("nan")
+    else:
+        out["bas"] = "nan"
+        bas_ok = pd.Series(True, index=out.index)
+    out = out.loc[mode_ok & bas_ok].copy()
+    dropped = before - len(out)
+    print(
+        f"[{label}] keep mode=sgl & bas=nan: {len(out)}/{before} rows "
+        f"(dropped {dropped})"
+    )
+    if out.empty:
+        raise ValueError(f"{label}: no mode=sgl & bas=nan rows after filter")
+    return out.reset_index(drop=True)

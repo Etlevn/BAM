@@ -7,10 +7,10 @@ import pandas as pd
 # First columns for rx / mkt / output (exact spelling).
 LEADING_COLS = [
     "group",
+    "mode",
+    "bas",
     "series",
     "session",
-    "market_type",
-    "bas",
     "round",
     "llm",
     "llm_type",

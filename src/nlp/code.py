@@ -38,6 +38,8 @@ def process_single_row(
     thread_id: int = 1,
     total_samples: int | None = None,
     max_threads: int | None = None,
+    *,
+    skip_existing: bool = False,
 ) -> dict[str, Any]:
     start_time = time.time()
     sess = nlp_utils.session_id(row_data)
@@ -61,6 +63,8 @@ def process_single_row(
         "insight_success": False,
         "plan_file": None,
         "insight_file": None,
+        "plan_skipped": False,
+        "insight_skipped": False,
     }
 
     api_mode = cfg["api_mode"]
@@ -68,7 +72,28 @@ def process_single_row(
     mechanisms = cfg["mechanism_order"]
     save_json = cfg.get("save_individual_json", True)
 
-    if cfg.get("evaluate_plan", True):
+    plan_name = nlp_utils.generate_output_filename(sess, round_num, agent_id, "plan")
+    insight_name = nlp_utils.generate_output_filename(
+        sess, round_num, agent_id, "insight"
+    )
+    plan_path = output_dir / plan_name
+    insight_path = output_dir / insight_name
+
+    do_plan = bool(cfg.get("evaluate_plan", True))
+    if do_plan and skip_existing and plan_path.is_file():
+        results["plan_success"] = True
+        results["plan_skipped"] = True
+        results["plan_file"] = plan_name
+        _thread_print(
+            thread_id,
+            index + 1,
+            f"[SKIP] Plan exists: {plan_name}",
+            total_samples,
+            max_threads,
+        )
+        do_plan = False
+
+    if do_plan:
         _thread_print(
             thread_id, index + 1, "[PROC] Evaluating PLAN...", total_samples, max_threads
         )
@@ -93,15 +118,14 @@ def process_single_row(
             plan_result["agent_info"] = {
                 "llm_id": agent_id,
                 "round": round_num,
-                "market_type": row_data.get("market_type", "N/A"),
+                "mode": row_data.get("mode", "N/A"),
             }
             if save_json:
-                name = nlp_utils.generate_output_filename(sess, round_num, agent_id, "plan")
-                if nlp_utils.save_json_result(plan_result, output_dir / name):
+                if nlp_utils.save_json_result(plan_result, plan_path):
                     _thread_print(
-                        thread_id, index + 1, f"[SAVE] {name}", total_samples, max_threads
+                        thread_id, index + 1, f"[SAVE] {plan_name}", total_samples, max_threads
                     )
-                    results["plan_file"] = name
+                    results["plan_file"] = plan_name
         else:
             _thread_print(
                 thread_id,
@@ -115,7 +139,21 @@ def process_single_row(
                     thread_id, index + 1, f"  - {error}", total_samples, max_threads
                 )
 
-    if cfg.get("evaluate_insight", True):
+    do_insight = bool(cfg.get("evaluate_insight", True))
+    if do_insight and skip_existing and insight_path.is_file():
+        results["insight_success"] = True
+        results["insight_skipped"] = True
+        results["insight_file"] = insight_name
+        _thread_print(
+            thread_id,
+            index + 1,
+            f"[SKIP] Insight exists: {insight_name}",
+            total_samples,
+            max_threads,
+        )
+        do_insight = False
+
+    if do_insight:
         _thread_print(
             thread_id,
             index + 1,
@@ -146,17 +184,18 @@ def process_single_row(
             insight_result["agent_info"] = {
                 "llm_id": agent_id,
                 "round": round_num,
-                "market_type": row_data.get("market_type", "N/A"),
+                "mode": row_data.get("mode", "N/A"),
             }
             if save_json:
-                name = nlp_utils.generate_output_filename(
-                    sess, round_num, agent_id, "insight"
-                )
-                if nlp_utils.save_json_result(insight_result, output_dir / name):
+                if nlp_utils.save_json_result(insight_result, insight_path):
                     _thread_print(
-                        thread_id, index + 1, f"[SAVE] {name}", total_samples, max_threads
+                        thread_id,
+                        index + 1,
+                        f"[SAVE] {insight_name}",
+                        total_samples,
+                        max_threads,
                     )
-                    results["insight_file"] = name
+                    results["insight_file"] = insight_name
         else:
             _thread_print(
                 thread_id,
@@ -187,6 +226,7 @@ def run_code(
     *,
     cfg: dict[str, Any],
     prompt_path: Path,
+    skip_existing: bool = False,
 ) -> list[dict[str, Any]]:
     start_time = time.time()
     system_prompt = nlp_utils.load_prompt_template(prompt_path)
@@ -194,11 +234,13 @@ def run_code(
     if input_csv.suffix.lower() in (".xlsx", ".xls"):
         df = pd.read_excel(input_csv, engine="openpyxl")
     else:
-        df = pd.read_csv(input_csv)
+        df = pd.read_csv(input_csv, keep_default_na=False)
 
     missing = nlp_utils.required_columns(df.columns)
     if missing:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
+
+    df = nlp_utils.filter_sgl_rows(df, label="nlp code")
 
     max_rows = cfg.get("max_processing_rows")
     if max_rows is not None and len(df) > int(max_rows):
@@ -214,7 +256,11 @@ def run_code(
     output_dir.mkdir(parents=True, exist_ok=True)
     max_workers = int(cfg.get("max_workers") or 1)
     total_samples = len(df)
-    print(f"[INFO] Coding {total_samples} rows with {max_workers} workers → {output_dir}")
+    mode = "refill-skip-existing" if skip_existing else "full"
+    print(
+        f"[INFO] Coding {total_samples} rows ({mode}) "
+        f"with {max_workers} workers → {output_dir}"
+    )
 
     all_results: list[dict[str, Any]] = []
 
@@ -235,6 +281,7 @@ def run_code(
                             thread_counter,
                             total_samples,
                             max_workers,
+                            skip_existing=skip_existing,
                         )
                     )
                     thread_counter = (thread_counter % max_workers) + 1
@@ -257,6 +304,7 @@ def run_code(
                         1,
                         total_samples,
                         max_workers,
+                        skip_existing=skip_existing,
                     )
                 )
             except Exception as exc:

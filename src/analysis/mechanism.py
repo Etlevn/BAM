@@ -1,4 +1,4 @@
-"""Agent–round–mechanism panel for Table 9 (bubble vs non-bubble scores)."""
+"""Agent–round–mechanism panel: NLP scores in bubble vs non-bubble periods."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-# Keep in sync with nlp.py MECHANISM_ORDER / Table 11.
+# Keep in sync with nlp.py MECHANISM_ORDER (canonical mechanism id list).
 MECHANISM_ORDER: tuple[str, ...] = (
     "rational_speculative_bubble",
     "synchronization_risk",
@@ -33,7 +33,40 @@ MECHANISM_ORDER: tuple[str, ...] = (
     "statistical_testing",
 )
 
-_KEY = ["group", "series", "session", "llm"]
+_KEY = ["group", "mode", "bas", "series", "session", "llm"]
+
+
+def _normalize_output_nlp(df: pd.DataFrame) -> pd.DataFrame:
+    """Align legacy ``_output_nlp`` identity cols with integ (mode / bas=nan)."""
+    out = df.copy()
+    if "mode" not in out.columns and "market_type" in out.columns:
+        out = out.rename(columns={"market_type": "mode"})
+    if "bas" in out.columns:
+        bas = out["bas"].astype(str).str.strip()
+        # Legacy files used "" / "null"; integ uses the literal string "nan".
+        out["bas"] = bas.where(
+            ~bas.str.lower().isin({"", "null", "none", "nan"}), "nan"
+        )
+    return out
+
+
+def _keep_sgl(df: pd.DataFrame) -> pd.DataFrame:
+    """NLP / mechanism scope: ``mode=sgl`` and ``bas=nan`` (non-BAS baseline)."""
+    out = df.copy()
+    if "mode" not in out.columns and "market_type" in out.columns:
+        out = out.rename(columns={"market_type": "mode"})
+    if "mode" not in out.columns:
+        raise ValueError("mechanism panel requires mode (or market_type) to keep sgl")
+    mode_ok = out["mode"].astype(str).str.strip().str.lower().eq("sgl")
+    if "bas" in out.columns:
+        bas = out["bas"].astype(str).str.strip()
+        bas_norm = bas.where(~bas.str.lower().isin({"", "null", "none", "nan"}), "nan")
+        out["bas"] = bas_norm
+        bas_ok = bas_norm.eq("nan")
+    else:
+        out["bas"] = "nan"
+        bas_ok = pd.Series(True, index=out.index)
+    return out.loc[mode_ok & bas_ok].copy()
 
 
 def parse_mechanism_scores(nlp_payload: Any) -> dict[str, float]:
@@ -88,10 +121,10 @@ def build_mechanism_panel(
     Long panel: agent × round × mechanism.
 
     ``bubble`` = 1{P_t > FV} (strict). Scores from ``plan_nlp`` / ``insight_nlp``.
-    Requires integ ``_mkt`` and NLP ``_output_nlp`` (no fallback).
+    Only ``mode=sgl`` (drops br). Requires integ ``_mkt`` and NLP ``_output_nlp``.
     """
     order = tuple(mechanism_order) if mechanism_order is not None else MECHANISM_ORDER
-    mkt = mkt.copy()
+    mkt = _keep_sgl(mkt)
     mkt["round"] = pd.to_numeric(mkt["round"], errors="coerce")
     mkt["mkt_prc"] = pd.to_numeric(mkt.get("mkt_prc"), errors="coerce")
     mkt = mkt.dropna(subset=["round", "session", "llm"])
@@ -99,11 +132,29 @@ def build_mechanism_panel(
     formal = set(range(1, int(total_rounds) + 1))
     mkt = mkt[mkt["round"].isin(formal)].copy()
 
-    nlp = output_nlp.copy()
+    nlp = _keep_sgl(_normalize_output_nlp(output_nlp))
     nlp["round"] = pd.to_numeric(nlp["round"], errors="coerce")
     nlp = nlp.dropna(subset=["round", "session", "llm"])
     nlp["round"] = nlp["round"].astype(int)
     nlp = nlp[nlp["round"].isin(formal)].copy()
+
+    if mkt.empty:
+        front = [
+            "group",
+            "mode",
+            "bas",
+            "series",
+            "session",
+            "round",
+            "llm",
+            "llm_type",
+            "mkt_prc",
+            "bubble",
+            "mechanism_id",
+            "score_plan",
+            "score_insight",
+        ]
+        return pd.DataFrame(columns=front)
 
     merge_keys = [c for c in _KEY if c in mkt.columns and c in nlp.columns] + ["round"]
     score_cols = [c for c in ("plan_nlp", "insight_nlp") if c in nlp.columns]
@@ -111,10 +162,10 @@ def build_mechanism_panel(
         c
         for c in (
             "group",
+            "mode",
+            "bas",
             "series",
             "session",
-            "market_type",
-            "bas",
             "round",
             "llm",
             "llm_type",
@@ -146,10 +197,10 @@ def build_mechanism_panel(
             rows.append(
                 {
                     "group": row.get("group"),
+                    "mode": row.get("mode"),
+                    "bas": row.get("bas"),
                     "series": row.get("series"),
                     "session": row.get("session"),
-                    "market_type": row.get("market_type"),
-                    "bas": row.get("bas"),
                     "round": int(row["round"]),
                     "llm": row.get("llm"),
                     "llm_type": row.get("llm_type"),
@@ -164,10 +215,10 @@ def build_mechanism_panel(
     out = pd.DataFrame(rows)
     front = [
         "group",
+        "mode",
+        "bas",
         "series",
         "session",
-        "market_type",
-        "bas",
         "round",
         "llm",
         "llm_type",
@@ -180,11 +231,26 @@ def build_mechanism_panel(
     return out.loc[:, front]
 
 
+def mechanism_nlp_path(out_dir: Path, group_name: str) -> Path:
+    """Prefer ``nlp/<GROUP>_output_nlp.csv``; fall back to legacy root location."""
+    from src.integ.paths import nlp_csv
+
+    preferred = nlp_csv(out_dir, group_name, "output_nlp")
+    if preferred.is_file():
+        return preferred
+    legacy = out_dir / f"{group_name}_output_nlp.csv"
+    if legacy.is_file():
+        return legacy
+    return preferred
+
+
 def load_mechanism_inputs(
     out_dir: Path, group_name: str
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    mkt_path = out_dir / f"{group_name}_mkt.csv"
-    nlp_path = out_dir / f"{group_name}_output_nlp.csv"
+    from src.integ.paths import integ_csv, read_table_csv
+
+    mkt_path = integ_csv(out_dir, group_name, "mkt")
+    nlp_path = mechanism_nlp_path(out_dir, group_name)
     if not mkt_path.is_file():
         raise FileNotFoundError(
             f"RUN_MECHANISM requires {mkt_path}; run integ first (no fallback)."
@@ -193,4 +259,4 @@ def load_mechanism_inputs(
         raise FileNotFoundError(
             f"RUN_MECHANISM requires {nlp_path}; run nlp RUN_POST first (no fallback)."
         )
-    return pd.read_csv(mkt_path), pd.read_csv(nlp_path)
+    return read_table_csv(mkt_path), _normalize_output_nlp(read_table_csv(nlp_path))

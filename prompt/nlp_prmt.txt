@@ -1,7 +1,7 @@
 You are auditing LLM trading agents for behavioral biases.
 
 Context:
-- Agent: {LM_id} | Round: {round} | Market: {market_type}
+- Agent: {LM_id} | Round: {round} | Market: {mode}
 - Price/Fundamental: {price_info} | Returns: {recent_returns}
 - Plan: "{plan_text}"
 - Insights: "{insights_text}"

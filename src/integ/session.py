@@ -21,7 +21,7 @@ class SessionMeta:
     group: str
     series: str
     simulation_index: str
-    market_type: str
+    mode: str
     bas: str
     assignments: dict[str, str]
     total_rounds: int
@@ -73,12 +73,12 @@ def _legacy_assignments(cfg: dict) -> dict[str, str]:
 
 
 def _bas_value(exp: dict) -> str:
-    """BAS bias id when enabled; otherwise the literal 'null'."""
+    """BAS bias id when enabled; otherwise the literal ``nan``."""
     if not bool(exp.get("USE_BAS_MODE")):
-        return "null"
+        return "nan"
     bias = exp.get("BAS_BIAS_ID")
     if bias is None or str(bias).strip() == "":
-        return "null"
+        return "nan"
     return str(bias)
 
 
@@ -88,14 +88,14 @@ def load_session_meta(session_dir: Path, series: str, group: str) -> SessionMeta
         return None
 
     exp = cfg.get("experiment") or {}
-    market_type = str(exp.get("EXPERIMENT_MODE") or "").strip().lower()
-    if market_type not in ("sgl", "br"):
+    mode = str(exp.get("EXPERIMENT_MODE") or "").strip().lower()
+    if mode not in ("sgl", "br"):
         if cfg.get("model_name") and not cfg.get("assignments"):
-            market_type = "sgl"
+            mode = "sgl"
         elif cfg.get("assignments"):
-            market_type = "br"
+            mode = "br"
         else:
-            market_type = "unknown"
+            mode = "unknown"
 
     assignments = _legacy_assignments(cfg)
     ec = exp.get("EXPERIMENT_CONFIG") or {}
@@ -106,7 +106,7 @@ def load_session_meta(session_dir: Path, series: str, group: str) -> SessionMeta
         group=group,
         series=series,
         simulation_index=session_dir.name,
-        market_type=market_type,
+        mode=mode,
         bas=_bas_value(exp),
         assignments=assignments,
         total_rounds=total_rounds,

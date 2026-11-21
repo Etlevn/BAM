@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.nlp.utils import session_id
+from src.nlp.utils import filter_sgl_rows, session_id
 from src.support.progress import track
 
 
@@ -14,8 +14,9 @@ def merge_nlp_results(input_csv: Path, nlp_dir: Path, output_csv: Path) -> Path:
     if not input_csv.is_file():
         raise FileNotFoundError(f"Input file not found: {input_csv}")
 
-    # keep_default_na=False: preserve integ's literal "null" in bas (and similar).
+    # keep_default_na=False: preserve integ's literal "nan" in bas (and similar).
     df = pd.read_csv(input_csv, dtype=str, keep_default_na=False)
+    df = filter_sgl_rows(df, label="nlp merge")
     df["plan_nlp"] = None
     df["insight_nlp"] = None
 
@@ -45,8 +46,9 @@ def merge_nlp_results(input_csv: Path, nlp_dir: Path, output_csv: Path) -> Path:
                 except Exception:
                     pass
 
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_csv, index=False, encoding="utf-8")
+    from src.integ.paths import write_table_csv
+
+    write_table_csv(df, output_csv)
 
     total = len(df)
     plan_filled = int(df["plan_nlp"].notna().sum())

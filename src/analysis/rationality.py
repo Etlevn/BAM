@@ -123,6 +123,8 @@ def build_rational_row(
     df = pd.DataFrame(forecast_rows)
     row: dict[str, Any] = {
         "group": meta.group,
+        "mode": meta.mode,
+        "bas": meta.bas,
         "series": meta.series,
         "session": meta.simulation_index,
         "mse": float(np.mean((df["forecast"] - df["true_price"]) ** 2)),
@@ -144,6 +146,8 @@ def build_rational_table(
     rows = [r for r in rows if r is not None]
     cols = [
         "group",
+        "mode",
+        "bas",
         "series",
         "session",
         "mse",

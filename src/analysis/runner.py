@@ -10,24 +10,39 @@ import pandas as pd
 
 import config
 from src.analysis.behavior import build_behavior_panel, load_behavior_inputs
-from src.analysis.br_agg import expand_market_by_model, is_br_group
+from src.analysis.br_agg import frame_for_robust
 from src.analysis.cognition import build_cognition_panel, load_cognition_inputs
 from src.analysis.equilibrium import build_equilibrium_panel, load_equilibrium_inputs
 from src.analysis.intervention import (
-    build_intervention_panel,
+    build_intervention_table,
+    has_bas_sessions,
     load_intervention_inputs,
-    summarize_intervention_by_mechanism,
 )
 from src.analysis.market import build_market_row
-from src.analysis.mechanism import build_mechanism_panel, load_mechanism_inputs
+from src.analysis.mechanism import (
+    build_mechanism_panel,
+    load_mechanism_inputs,
+    mechanism_nlp_path,
+)
 from src.analysis.mkt_agg import build_mkt_agg_table, load_group_mkt_csv
 from src.analysis.plots import plot_group, plot_mkt_agg
 from src.analysis.rationality import build_rational_row
 from src.analysis.robustness import summarize_by_series
-from src.integ.runner import ensure_cased_path, resolve_group_dir
+from src.integ.paths import (
+    ensure_cased_path,
+    integ_csv,
+    metrics_csv,
+    panel_csv,
+    write_table_csv,
+)
+from src.integ.runner import resolve_group_dir
 from src.integ.session import SessionMeta, classify_group_sessions
 from src.support.progress import track
 
+# Fixed subdirs under _<GROUP>/plots/ (session curves vs aggregated trajectories).
+_PLOTS_DIR = "plots"
+_PLOTS_MARKET_DIR = "market"
+_PLOTS_MKT_AGG_DIR = "mkt_agg"
 
 MARKET_METRICS = ("mse", "amplitude", "pv_variance")
 RATIONAL_METRICS = (
@@ -45,6 +60,8 @@ RATIONAL_METRICS = (
 
 _MARKET_COLUMNS = [
     "group",
+    "mode",
+    "bas",
     "series",
     "session",
     "rounds",
@@ -54,6 +71,8 @@ _MARKET_COLUMNS = [
 ]
 _RATIONAL_COLUMNS = [
     "group",
+    "mode",
+    "bas",
     "series",
     "session",
     "mse",
@@ -70,9 +89,7 @@ _RATIONAL_COLUMNS = [
 
 
 def _write_csv(df: pd.DataFrame, path: Path) -> None:
-    path = ensure_cased_path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False, encoding="utf-8")
+    path = write_table_csv(df, path)
     print(f"Saved {len(df)} rows → {path}")
 
 
@@ -93,7 +110,6 @@ def run_group(
     *,
     run_market: bool = True,
     run_market_robust: bool = True,
-    run_market_agg_robust: bool = False,
     run_mkt_agg: bool = False,
     run_mkt_agg_plot: bool = False,
     run_behavior: bool = False,
@@ -104,7 +120,6 @@ def run_group(
     run_rational: bool = True,
     run_rational_robust: bool = True,
     run_plots: bool = False,
-    plots_folder: str = "plots",
     exp_root: Path | None = None,
 ) -> dict[str, Path]:
     root = Path(exp_root) if exp_root is not None else Path(config.EXP_DIR)
@@ -114,6 +129,9 @@ def run_group(
 
     group_name = group_dir.name
     out_dir = ensure_cased_path(group_dir / f"_{group_name}")
+    plots_root = ensure_cased_path(out_dir / _PLOTS_DIR)
+    plots_market_root = ensure_cased_path(plots_root / _PLOTS_MARKET_DIR)
+    plots_mkt_agg_root = ensure_cased_path(plots_root / _PLOTS_MKT_AGG_DIR)
     fv = _fundamental_value()
     total_rounds = _total_rounds()
     initial_stocks = _initial_stocks()
@@ -164,27 +182,28 @@ def run_group(
 
     if run_market:
         market_df = (
-            pd.DataFrame(market_rows)
+            pd.DataFrame(market_rows)[_MARKET_COLUMNS]
             if market_rows
             else pd.DataFrame(columns=_MARKET_COLUMNS)
         )
-        market_path = out_dir / f"{group_name}_market.csv"
+        market_path = metrics_csv(out_dir, group_name, "market")
         _write_csv(market_df, market_path)
         written["market"] = market_path
 
         if run_market_robust:
-            market_rob = summarize_by_series(market_df, MARKET_METRICS)
-            market_rob_path = out_dir / f"{group_name}_market_robust.csv"
-            _write_csv(market_rob, market_rob_path)
-            written["market_robust"] = market_rob_path
-
-        # BR only: explode pair→model in memory, write robust only (SGL-style means).
-        if is_br_group(group_name) and run_market_agg_robust:
-            market_agg = expand_market_by_model(market_df)
-            agg_rob = summarize_by_series(market_agg, MARKET_METRICS)
-            agg_rob_path = out_dir / f"{group_name}_market_agg_robust.csv"
-            _write_csv(agg_rob, agg_rob_path)
-            written["market_agg_robust"] = agg_rob_path
+            for mode in ("sgl", "br"):
+                frame = frame_for_robust(market_df, mode)
+                key = f"market_robust_{mode}"
+                if frame.empty:
+                    print(
+                        f"[anal] skip {key} for {group_name!r}: "
+                        f"no mode={mode} rows"
+                    )
+                    continue
+                rob = summarize_by_series(frame, MARKET_METRICS)
+                path = metrics_csv(out_dir, group_name, key)
+                _write_csv(rob, path)
+                written[key] = path
 
     if run_rational:
         rational_df = (
@@ -192,23 +211,30 @@ def run_group(
             if rational_rows
             else pd.DataFrame(columns=_RATIONAL_COLUMNS)
         )
-        rational_path = out_dir / f"{group_name}_rational.csv"
+        rational_path = metrics_csv(out_dir, group_name, "rational")
         _write_csv(rational_df, rational_path)
         written["rational"] = rational_path
 
         if run_rational_robust:
-            rational_rob = summarize_by_series(rational_df, RATIONAL_METRICS)
-            rational_rob_path = out_dir / f"{group_name}_rational_robust.csv"
-            _write_csv(rational_rob, rational_rob_path)
-            written["rational_robust"] = rational_rob_path
+            for mode in ("sgl", "br"):
+                frame = frame_for_robust(rational_df, mode)
+                key = f"rational_robust_{mode}"
+                if frame.empty:
+                    print(
+                        f"[anal] skip {key} for {group_name!r}: "
+                        f"no mode={mode} rows"
+                    )
+                    continue
+                rob = summarize_by_series(frame, RATIONAL_METRICS)
+                path = metrics_csv(out_dir, group_name, key)
+                _write_csv(rob, path)
+                written[key] = path
 
     if run_plots and sessions:
-        folder = str(plots_folder or "plots").strip() or "plots"
-        plots_root = out_dir / folder
         written["plots"] = plot_group(
             sessions,
             market_rows,
-            plots_root=plots_root,
+            plots_root=plots_market_root,
             fundamental_value=fv,
             min_rounds=total_rounds,
         )
@@ -217,7 +243,7 @@ def run_group(
     mkt_agg_path = out_dir / f"{group_name}_mkt_agg.csv"
 
     if run_mkt_agg:
-        integ_mkt = out_dir / f"{group_name}_mkt.csv"
+        integ_mkt = integ_csv(out_dir, group_name, "mkt")
         if not integ_mkt.is_file():
             raise FileNotFoundError(
                 f"RUN_MKT_AGG requires integ output {integ_mkt}; "
@@ -240,11 +266,11 @@ def run_group(
                     f"RUN_MKT_AGG_PLOT requires {mkt_agg_path}; "
                     f"enable RUN_MKT_AGG first (no fallback)."
                 )
-            mkt_agg_df = pd.read_csv(mkt_agg_path)
-        folder = str(plots_folder or "plots").strip() or "plots"
-        plot_path = out_dir / folder / "_mkt_agg.png"
+            from src.integ.paths import read_table_csv
+
+            mkt_agg_df = read_table_csv(mkt_agg_path)
         written["mkt_agg_plot"] = plot_mkt_agg(
-            mkt_agg_df, save_path=plot_path, group=group_name
+            mkt_agg_df, plots_dir=plots_mkt_agg_root, group=group_name
         )
 
     if run_behavior:
@@ -256,7 +282,7 @@ def run_group(
             initial_stocks=initial_stocks,
             total_rounds=total_rounds,
         )
-        behavior_path = out_dir / f"{group_name}_behavior.csv"
+        behavior_path = panel_csv(out_dir, group_name, "behavior")
         _write_csv(behavior_df, behavior_path)
         written["behavior"] = behavior_path
 
@@ -265,7 +291,7 @@ def run_group(
         eq_df = build_equilibrium_panel(
             mkt_df, rx_df, total_rounds=total_rounds
         )
-        eq_path = out_dir / f"{group_name}_equilibrium.csv"
+        eq_path = panel_csv(out_dir, group_name, "equilibrium")
         _write_csv(eq_df, eq_path)
         written["equilibrium"] = eq_path
 
@@ -274,37 +300,57 @@ def run_group(
         cog_df = build_cognition_panel(
             mkt_df, rx_df, output_df, total_rounds=total_rounds
         )
-        cog_path = out_dir / f"{group_name}_cognition.csv"
+        cog_path = panel_csv(out_dir, group_name, "cognition")
         _write_csv(cog_df, cog_path)
         written["cognition"] = cog_path
 
     if run_mechanism:
-        mkt_df, nlp_df = load_mechanism_inputs(out_dir, group_name)
-        mech_df = build_mechanism_panel(
-            mkt_df,
-            nlp_df,
-            fundamental_value=fv,
-            total_rounds=total_rounds,
-        )
-        mech_path = out_dir / f"{group_name}_mechanism.csv"
-        _write_csv(mech_df, mech_path)
-        written["mechanism"] = mech_path
+        nlp_path = mechanism_nlp_path(out_dir, group_name)
+        if not nlp_path.is_file():
+            print(
+                f"[anal] skip mechanism for {group_name!r}: "
+                f"missing {nlp_path.name} (run nlp RUN_POST first)"
+            )
+        else:
+            mkt_df, nlp_df = load_mechanism_inputs(out_dir, group_name)
+            mech_df = build_mechanism_panel(
+                mkt_df,
+                nlp_df,
+                fundamental_value=fv,
+                total_rounds=total_rounds,
+            )
+            if mech_df.empty:
+                print(
+                    f"[anal] skip mechanism for {group_name!r}: "
+                    "no mode=sgl & bas=nan rows after filter"
+                )
+            else:
+                mech_path = panel_csv(out_dir, group_name, "mechanism")
+                _write_csv(mech_df, mech_path)
+                written["mechanism"] = mech_path
 
     if run_intervention:
         mkt_df, market_df = load_intervention_inputs(out_dir, group_name)
-        iv_df = build_intervention_panel(
-            mkt_df,
-            bas_market=market_df,
-            total_rounds=total_rounds,
-        )
-        iv_path = out_dir / f"{group_name}_intervention.csv"
-        _write_csv(iv_df, iv_path)
-        written["intervention"] = iv_path
-
-        iv_mech = summarize_intervention_by_mechanism(iv_df)
-        iv_mech_path = out_dir / f"{group_name}_intervention_mech.csv"
-        _write_csv(iv_mech, iv_mech_path)
-        written["intervention_mech"] = iv_mech_path
+        if not has_bas_sessions(mkt_df):
+            print(
+                f"[anal] skip intervention for {group_name!r}: "
+                "no BAS sessions (bas=base/amp_*/sup_*)"
+            )
+        else:
+            iv_df = build_intervention_table(
+                mkt_df,
+                bas_market=market_df,
+                total_rounds=total_rounds,
+            )
+            if iv_df.empty:
+                print(
+                    f"[anal] skip intervention for {group_name!r}: "
+                    "BAS rows present but intervention summary empty"
+                )
+            else:
+                iv_path = out_dir / f"{group_name}_intervention.csv"
+                _write_csv(iv_df, iv_path)
+                written["intervention"] = iv_path
 
     return written
 
@@ -314,7 +360,6 @@ def run_groups(
     *,
     run_market: bool = True,
     run_market_robust: bool = True,
-    run_market_agg_robust: bool = False,
     run_mkt_agg: bool = False,
     run_mkt_agg_plot: bool = False,
     run_behavior: bool = False,
@@ -325,7 +370,6 @@ def run_groups(
     run_rational: bool = True,
     run_rational_robust: bool = True,
     run_plots: bool = False,
-    plots_folder: str = "plots",
     exp_root: Path | None = None,
 ) -> dict[str, dict[str, Path]]:
     results: dict[str, dict[str, Path]] = {}
@@ -337,7 +381,6 @@ def run_groups(
             group,
             run_market=run_market,
             run_market_robust=run_market_robust,
-            run_market_agg_robust=run_market_agg_robust,
             run_mkt_agg=run_mkt_agg,
             run_mkt_agg_plot=run_mkt_agg_plot,
             run_behavior=run_behavior,
@@ -348,7 +391,6 @@ def run_groups(
             run_rational=run_rational,
             run_rational_robust=run_rational_robust,
             run_plots=run_plots,
-            plots_folder=plots_folder,
             exp_root=exp_root,
         )
     return results

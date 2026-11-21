@@ -1,4 +1,4 @@
-"""Session–round equilibrium panel for Tables 5–6 (from integ _mkt + _rx)."""
+"""Session–round equilibrium panel: disagreement → next price change / volume (integ _mkt + _rx)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-_SESS_KEY = ["group", "series", "session"]
+_SESS_KEY = ["group", "mode", "bas", "series", "session"]
 
 
 def _session_round_prices(mkt: pd.DataFrame) -> pd.DataFrame:
@@ -17,7 +17,7 @@ def _session_round_prices(mkt: pd.DataFrame) -> pd.DataFrame:
     df["mkt_vol"] = pd.to_numeric(df["mkt_vol"], errors="coerce").fillna(0.0)
     df = df.dropna(subset=["session", "round", "mkt_prc"])
     df["round"] = df["round"].astype(int)
-    keep = [c for c in _SESS_KEY + ["market_type", "bas", "round", "mkt_prc", "mkt_vol"] if c in df.columns]
+    keep = [c for c in _SESS_KEY + ["round", "mkt_prc", "mkt_vol"] if c in df.columns]
     return (
         df.sort_values(_SESS_KEY + ["round"])
         .drop_duplicates(subset=_SESS_KEY + ["round"], keep="first")
@@ -118,10 +118,10 @@ def build_equilibrium_panel(
 
     front = [
         "group",
+        "mode",
+        "bas",
         "series",
         "session",
-        "market_type",
-        "bas",
         "round",
         "mkt_prc",
         "mkt_vol",
@@ -142,8 +142,10 @@ def build_equilibrium_panel(
 def load_equilibrium_inputs(
     out_dir: Path, group_name: str
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    mkt_path = out_dir / f"{group_name}_mkt.csv"
-    rx_path = out_dir / f"{group_name}_rx.csv"
+    from src.integ.paths import integ_csv
+
+    mkt_path = integ_csv(out_dir, group_name, "mkt")
+    rx_path = integ_csv(out_dir, group_name, "rx")
     if not mkt_path.is_file():
         raise FileNotFoundError(
             f"RUN_EQUILIBRIUM requires {mkt_path}; run integ first (no fallback)."
@@ -152,4 +154,6 @@ def load_equilibrium_inputs(
         raise FileNotFoundError(
             f"RUN_EQUILIBRIUM requires {rx_path}; run integ first (no fallback)."
         )
-    return pd.read_csv(mkt_path), pd.read_csv(rx_path)
+    from src.integ.paths import read_table_csv
+
+    return read_table_csv(mkt_path), read_table_csv(rx_path)

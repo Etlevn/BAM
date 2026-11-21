@@ -60,6 +60,8 @@ def build_market_row(
 
     return {
         "group": meta.group,
+        "mode": meta.mode,
+        "bas": meta.bas,
         "series": meta.series,
         "session": meta.simulation_index,
         "rounds": actual_rounds,
@@ -82,16 +84,17 @@ def build_market_table(
         for meta in sessions
     ]
     rows = [r for r in rows if r is not None]
+    cols = [
+        "group",
+        "mode",
+        "bas",
+        "series",
+        "session",
+        "rounds",
+        "mse",
+        "amplitude",
+        "pv_variance",
+    ]
     if not rows:
-        return pd.DataFrame(
-            columns=[
-                "group",
-                "series",
-                "session",
-                "rounds",
-                "mse",
-                "amplitude",
-                "pv_variance",
-            ]
-        )
-    return pd.DataFrame(rows)
+        return pd.DataFrame(columns=cols)
+    return pd.DataFrame(rows)[cols]

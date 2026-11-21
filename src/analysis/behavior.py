@@ -7,7 +7,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-_KEY = ["group", "series", "session", "llm"]
+# Include mode/bas so mixed groups (e.g. TEST) never merge/WAPP across arms.
+_KEY = ["group", "mode", "bas", "series", "session", "llm"]
 
 
 def _coerce_mkt(mkt: pd.DataFrame) -> pd.DataFrame:
@@ -214,13 +215,13 @@ def build_behavior_panel(
     # Table 4: expectations at t explain buy at t+1.
     panel["buy_dummy_next"] = panel.groupby(_KEY, dropna=False)["buy_dummy"].shift(-1)
 
-    # Stable column order: keys + behavior fields + leftover mkt fields.
+    # Stable column order: identity + behavior fields + leftover mkt fields.
     front = [
         "group",
+        "mode",
+        "bas",
         "series",
         "session",
-        "market_type",
-        "bas",
         "round",
         "llm",
         "llm_type",
@@ -252,8 +253,10 @@ def build_behavior_panel(
 
 
 def load_behavior_inputs(out_dir: Path, group_name: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    mkt_path = out_dir / f"{group_name}_mkt.csv"
-    rx_path = out_dir / f"{group_name}_rx.csv"
+    from src.integ.paths import integ_csv
+
+    mkt_path = integ_csv(out_dir, group_name, "mkt")
+    rx_path = integ_csv(out_dir, group_name, "rx")
     if not mkt_path.is_file():
         raise FileNotFoundError(
             f"RUN_BEHAVIOR requires {mkt_path}; run integ first (no fallback)."
@@ -262,4 +265,6 @@ def load_behavior_inputs(out_dir: Path, group_name: str) -> tuple[pd.DataFrame, 
         raise FileNotFoundError(
             f"RUN_BEHAVIOR requires {rx_path}; run integ first (no fallback)."
         )
-    return pd.read_csv(mkt_path), pd.read_csv(rx_path)
+    from src.integ.paths import read_table_csv
+
+    return read_table_csv(mkt_path), read_table_csv(rx_path)

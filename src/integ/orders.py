@@ -30,7 +30,7 @@ def build_orders(meta: SessionMeta) -> pd.DataFrame:
         out["series"] = meta.series
         out["session"] = meta.simulation_index
         out["bas"] = meta.bas
-        out["market_type"] = meta.market_type
+        out["mode"] = meta.mode
         out["round"] = round_num
         if "llm" in out.columns:
             out["llm_type"] = out["llm"].map(meta.assignments)

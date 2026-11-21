@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from src.analysis.market_io import read_market_prices_and_volumes
-from src.integ.runner import ensure_cased_path
+from src.integ.paths import ensure_cased_path
 from src.integ.session import SessionMeta
 
 
@@ -82,7 +82,9 @@ def plot_group(
     min_rounds: int = 20,
 ) -> Path:
     """
-    Save plots under plots_root/<series>/<session>.png.
+    Save session plots under ``plots/market/<series>/<session>.png``.
+
+    ``plots_root`` should already be the ``market`` folder.
     Metrics for the title come from market_rows (session-level market table).
     """
     by_key = {
@@ -118,31 +120,29 @@ def plot_group(
     return plots_root
 
 
-def plot_mkt_agg(
-    mkt_agg_df,
+def _plot_one_mkt_agg_curve(
+    df,
     *,
     save_path: Path,
-    group: str = "",
+    title: str,
 ) -> Path:
-    """
-    Paper Figure 2 style: mean price + 95% CI band, volume bars, FV dashed line.
-    Expects columns from build_mkt_agg_table / <GROUP>_mkt_agg.csv.
-    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import pandas as pd
 
-    df = mkt_agg_df.copy()
-    df["round"] = pd.to_numeric(df["round"], errors="coerce")
-    df = df.dropna(subset=["round"]).sort_values("round")
-    rounds = df["round"].astype(int).tolist()
-    mean_p = pd.to_numeric(df["mean_price"], errors="coerce")
-    ci_lo = pd.to_numeric(df["ci_low"], errors="coerce")
-    ci_hi = pd.to_numeric(df["ci_up"], errors="coerce")
-    mean_v = pd.to_numeric(df["mean_volume"], errors="coerce").fillna(0.0)
-    fv = float(pd.to_numeric(df["fundamental_value"], errors="coerce").dropna().iloc[0])
+    part = df.copy()
+    part["round"] = pd.to_numeric(part["round"], errors="coerce")
+    part = part.dropna(subset=["round"]).sort_values("round")
+    rounds = part["round"].astype(int).tolist()
+    mean_p = pd.to_numeric(part["mean_price"], errors="coerce")
+    ci_lo = pd.to_numeric(part["ci_low"], errors="coerce")
+    ci_hi = pd.to_numeric(part["ci_up"], errors="coerce")
+    mean_v = pd.to_numeric(part["mean_volume"], errors="coerce").fillna(0.0)
+    fv = float(
+        pd.to_numeric(part["fundamental_value"], errors="coerce").dropna().iloc[0]
+    )
 
     fig, ax1 = plt.subplots(figsize=(8, 4.5))
     ax1.fill_between(
@@ -179,18 +179,11 @@ def plot_mkt_agg(
     ax2.bar(rounds, mean_v, alpha=0.3, color="tab:blue", label="Mean Volume")
     ax2.set_ylabel("Volume", color="tab:blue")
     ax2.tick_params(axis="y", labelcolor="tab:blue")
-
-    title = "Aggregate Market Price Dynamics"
-    if group:
-        title = f"{title} ({group})"
     ax1.set_title(title)
     ax1.grid(True, linestyle=":")
-
-    # Combined legend
     h1, l1 = ax1.get_legend_handles_labels()
     h2, l2 = ax2.get_legend_handles_labels()
     ax1.legend(h1 + h2, l1 + l2, loc="upper right", fontsize=8)
-
     fig.tight_layout()
     save_path = ensure_cased_path(save_path)
     save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,3 +191,51 @@ def plot_mkt_agg(
     plt.close(fig)
     print(f"Saved mkt_agg plot → {save_path}")
     return save_path
+
+
+def _mkt_agg_png_name(mode: object, bas: object, series: object) -> str:
+    """e.g. ``sgl_base_gpt-6-luna.png`` / ``br_nan_gpt-5-nano_gpt-6-luna.png``."""
+
+    def _clean(x: object) -> str:
+        text = str(x).strip()
+        text = text.replace("/", "-").replace(" & ", "_").replace("&", "_")
+        text = text.replace(" ", "_")
+        return text or "na"
+
+    return f"{_clean(mode)}_{_clean(bas)}_{_clean(series)}.png"
+
+
+def plot_mkt_agg(
+    mkt_agg_df,
+    *,
+    plots_dir: Path,
+    group: str = "",
+) -> Path:
+    """
+    Aggregated price/volume trajectory plots under ``_<GROUP>/plots/mkt_agg/``.
+
+    One PNG per ``mode × bas × series``, named ``{mode}_{bas}_{series}.png``
+    (e.g. ``sgl_base_gpt-6-luna.png``).
+    """
+    import pandas as pd
+
+    df = mkt_agg_df.copy()
+    parent = ensure_cased_path(plots_dir)
+    parent.mkdir(parents=True, exist_ok=True)
+    base = "Aggregate Market Price Dynamics"
+    id_ok = all(c in df.columns for c in ("mode", "bas", "series"))
+
+    if not id_ok:
+        path = parent / "agg.png"
+        title = f"{base} ({group})" if group else base
+        return _plot_one_mkt_agg_curve(df, save_path=path, title=title)
+
+    last = parent
+    for (mode, bas, series), part in df.groupby(
+        ["mode", "bas", "series"], dropna=False, sort=True
+    ):
+        path = parent / _mkt_agg_png_name(mode, bas, series)
+        label = f"{mode} / {bas} / {series}"
+        title = f"{base} ({group}: {label})" if group else f"{base} ({label})"
+        last = _plot_one_mkt_agg_curve(part, save_path=path, title=title)
+    return last

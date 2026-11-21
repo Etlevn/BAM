@@ -1,8 +1,7 @@
-"""Scan selected exp groups and write aggregated CSVs under _<GROUP>/."""
+"""Scan selected exp groups and write aggregated CSVs under _<GROUP>/integrate/."""
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -12,9 +11,13 @@ import config
 from src.integ.columns import order_leading_columns
 from src.integ.orders import build_orders
 from src.integ.outputs import build_outputs
+from src.integ.paths import ensure_cased_path, integ_csv, write_table_csv
 from src.integ.session import classify_group_sessions
 from src.integ.snapshots import build_snapshots
 from src.support.progress import track
+
+# Re-export for callers that historically imported from runner.
+__all__ = ["ensure_cased_path", "resolve_group_dir", "run_group", "run_groups"]
 
 
 def _concat(frames: list[pd.DataFrame]) -> pd.DataFrame:
@@ -38,39 +41,8 @@ def resolve_group_dir(exp_root: Path, group: str) -> Path | None:
     return None
 
 
-def ensure_cased_path(path: Path) -> Path:
-    """
-    Ensure path's final component uses exactly path.name casing.
-    On case-insensitive volumes, an existing `_sgl` must be two-step-renamed
-    to `_SGL` (and likewise for CSV filenames).
-    """
-    parent = path.parent
-    parent.mkdir(parents=True, exist_ok=True)
-    target_name = path.name
-
-    existing: Path | None = None
-    for child in parent.iterdir():
-        if child.name.casefold() == target_name.casefold():
-            existing = child
-            break
-
-    if existing is None:
-        return parent / target_name
-
-    if existing.name == target_name:
-        return existing
-
-    # Case-only rename via a unique temporary name.
-    tmp = parent / f".{target_name}.{uuid.uuid4().hex}.tmp"
-    existing.rename(tmp)
-    tmp.rename(parent / target_name)
-    return parent / target_name
-
-
 def _write_csv(df: pd.DataFrame, path: Path) -> None:
-    path = ensure_cased_path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False, encoding="utf-8")
+    path = write_table_csv(df, path)
     print(f"Saved {len(df)} rows → {path}")
 
 
@@ -109,15 +81,15 @@ def run_group(
 
     written: dict[str, Path] = {}
     if run_orders:
-        path = out_dir / f"{group_name}_rx.csv"
+        path = integ_csv(out_dir, group_name, "rx")
         _write_csv(_concat(order_frames), path)
         written["rx"] = path
     if run_snapshots:
-        path = out_dir / f"{group_name}_mkt.csv"
+        path = integ_csv(out_dir, group_name, "mkt")
         _write_csv(_concat(snap_frames), path)
         written["mkt"] = path
     if run_outputs:
-        path = out_dir / f"{group_name}_output.csv"
+        path = integ_csv(out_dir, group_name, "output")
         _write_csv(_concat(out_frames), path)
         written["output"] = path
     return written

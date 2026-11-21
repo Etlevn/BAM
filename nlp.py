@@ -9,18 +9,21 @@ from src.nlp.runner import run_groups
 # Config
 # ============================================================
 
-# First-level folder names under exp/ (e.g. "SGL", "BR").
-GROUPS = ["SGL"]  # ["SGL", "BR", "BAS"]
+# First-level folder names under exp/ 
+GROUPS = ["TEST"]        # ["SGL", "BR", "BAS"]
 
-RUN_CODE = False    # → _<GROUP>/nlp/*.json
-RUN_POST = True    # → _<GROUP>/<GROUP>_output_nlp.csv + _output_miss.csv
+RUN_CODE = True          # → nlp/*.json for mode=sgl & bas=nan only
+RUN_POST = True          # → nlp/<GROUP>_output_nlp.csv + _output_miss.csv (sgl + bas=nan)
+RUN_REFILL_MISS = False  # → code miss rows (missing side only) → remake output_nlp + overwrite miss
+# RUN_REFILL_MISS ⊕ RUN_CODE (mutual exclusive). Refill already posts; RUN_POST ignored if both True.
+# NLP scope: mode=sgl and bas=nan (drops br and all BAS amp/sup/base).
 
 # Prompt (sole template).
 PROMPT_FILE = "nlp_prmt.txt"  # under config.PROMPT_DIR (prompt/)
 
-# API / processing (formerly nlp_config.json).
-API_MODE = "deepseek"
-MODEL_NAME = "deepseek-flash"
+# API / processing (uses config.API_CONFIG keys; same backends as trading).
+API_MODE = "deepseek"    # "openai" | "deepseek" | "expected_parrot"
+MODEL_NAME = "deepseek-flash"    # e.g. "gpt-6-luna" | "deepseek-flash"
 MAX_WORKERS = 100
 MAX_PROCESSING_ROWS = None  # int or None
 SAVE_INDIVIDUAL_JSON = True
@@ -72,6 +75,7 @@ def main() -> int:
         GROUPS,
         run_code_flag=RUN_CODE,
         run_post=RUN_POST,
+        run_refill_miss=RUN_REFILL_MISS,
         nlp_cfg=_nlp_cfg(),
         prompt_path=prompt_path,
     )

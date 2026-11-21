@@ -1,4 +1,4 @@
-"""Expand BR pair-series market rows into per-model rows (Table 1 Mixed)."""
+"""Expand BR pair-series market rows into per-model rows for mixed-market summaries."""
 
 from __future__ import annotations
 
@@ -29,12 +29,29 @@ def models_from_br_series(series: str) -> list[str]:
     return out
 
 
+def rows_for_mode(df: pd.DataFrame, mode: str) -> pd.DataFrame:
+    """Filter rows to ``mode`` (``sgl`` / ``br``); empty if none or column missing."""
+    if df is None or df.empty:
+        return pd.DataFrame()
+    if "mode" not in df.columns:
+        return pd.DataFrame()
+    wanted = str(mode).strip().lower()
+    col = df["mode"].astype(str).str.strip().str.lower()
+    return df.loc[col == wanted].copy()
+
+
+def br_market_rows(market_df: pd.DataFrame) -> pd.DataFrame:
+    """Rows with ``mode == "br"`` (mixed groups like TEST); empty if none."""
+    return rows_for_mode(market_df, "br")
+
+
 def expand_market_by_model(market_df: pd.DataFrame) -> pd.DataFrame:
     """
     Duplicate each session row once per model in its pair series.
 
     ``series`` becomes the single model name; mse / amplitude / pv_variance /
-    session / rounds / group are unchanged (same session-level metrics as SGL).
+    session / rounds / group / mode / bas are unchanged (same session-level
+    metrics as SGL).
     """
     if market_df is None or market_df.empty:
         return market_df.copy() if market_df is not None else pd.DataFrame()
@@ -52,7 +69,19 @@ def expand_market_by_model(market_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def is_br_group(group_name: str) -> bool:
-    """True for Battle-Royale analysis folders (e.g. BR, 3_BR)."""
-    name = str(group_name or "").strip().upper()
-    return name == "BR" or name.endswith("_BR") or name.startswith("BR_")
+def frame_for_robust(df: pd.DataFrame, mode: str) -> pd.DataFrame:
+    """
+    Session rows for one mode-split robust file (market or rational).
+
+    ``sgl``: filter only. ``br``: filter then explode pair series → one row per model.
+    """
+    part = rows_for_mode(df, mode)
+    if part.empty:
+        return part
+    if str(mode).strip().lower() == "br":
+        return expand_market_by_model(part)
+    return part
+
+
+# Backward-compatible alias.
+market_frame_for_robust = frame_for_robust

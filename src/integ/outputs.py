@@ -53,7 +53,7 @@ def build_outputs(meta: SessionMeta) -> pd.DataFrame:
                     "series": meta.series,
                     "session": meta.simulation_index,
                     "bas": meta.bas,
-                    "market_type": meta.market_type,
+                    "mode": meta.mode,
                     "round": round_num,
                     "llm": llm_name,
                     "llm_type": meta.assignments.get(llm_name, "unknown"),
