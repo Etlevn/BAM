@@ -144,7 +144,11 @@ Shared prompts live in `prompt/`. With `USE_BAS_MODE`, `BAS_BIAS_ID` (`base` / `
 From the repository root:
 
 ```bash
-python main.py
+# group + mode + BAS id + model (other settings from config.py)
+python main.py SGL sgl base gpt-4o
+python main.py BR br off "gpt-4o,claude-3-7-sonnet-20250219"
+
+python main.py   # uses config.py as-is
 ```
 
 One invocation creates a run directory under `exp/`, runs practice (if configured), then runs the formal market. Logs go to `log/`.

@@ -18,6 +18,9 @@ dependencies = [
     "statsmodels>=0.13.0",
 ]
 
+[project.scripts]
+bam = "main:main"
+
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
